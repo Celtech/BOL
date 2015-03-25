@@ -79,7 +79,7 @@ end
 
 function combo()
 	if (ts.target ~= nil) then
-		local damage = getDmg("Q",ts.target, myHero)
+		local damage = getDmg("R",ts.target, myHero)
 		local unit = DPTarget(ts.target)
 		local State, Position, perc = dp:predict(unit, mySkillShot)
 		if State == SkillShot.STATUS.SUCCESS_HIT then 
