@@ -64,10 +64,11 @@ local walker = "Hotkeys integrated with your SxOrbWalker Keys";
 
 require "VPrediction"
 
-
+local myHero = GetMyHero()
+local version = "1.00"
 local AUTOUPDATE = true
 local UPDATE_HOST = "raw.github.com"
-local UPDATE_PATH = "/CooLowbro/BoL/master/SHM.lua".."?rand="..math.random(1,10000)
+local UPDATE_PATH = "/Celtech/BOL/master/Brand.lua".."?rand="..math.random(1,10000)
 local UPDATE_FILE_PATH = SCRIPT_PATH..GetCurrentEnv().FILE_NAME
 local UPDATE_URL = "https://"..UPDATE_HOST..UPDATE_PATH
 
@@ -75,7 +76,7 @@ function _AutoupdaterMsg(msg)
 print("<b><font color=\"#FF0000\">Brand name TBD:</font></b> <font color=\"#FFFFFF\">"..msg.."</font>") 
 end
 if AUTOUPDATE then
-  local ServerData = GetWebResult(UPDATE_HOST, "/CooLowbro/BoL/master/SHM.version")
+  local ServerData = GetWebResult(UPDATE_HOST, "/Celtech/BOL/master/brand.version")
   if ServerData then
     ServerVersion = type(tonumber(ServerData)) == "number" and tonumber(ServerData) or nil
     if ServerVersion then
