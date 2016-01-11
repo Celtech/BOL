@@ -3,11 +3,13 @@ require "VPrediction"
 local ts = TargetSelector(TARGET_LESS_CAST_PRIORITY, 1100)
 local enemyMinions = minionManager(MINION_ENEMY, 600, player, MINION_SORT_HEALTH_ASC)
 local VP = nil
+local DP  = nil
+local HP  = nil
+local SP = nil
 local Target = nil
 local skinsPB = {};
 local skinObjectPos = nil;
 local skinHeader = nil;
-
 local dispellHeader = nil;
 local skinH = nil;
 local skinHPos = nil;
@@ -17,10 +19,20 @@ local walker = "Hotkeys integrated with your SxOrbWalker Keys";
 local myHero = GetMyHero()
 local version = ".02"
 local AUTOUPDATE = true
+local obw_URL = "https://raw.githubusercontent.com/Superx321/BoL/master/common/SxOrbWalk.lua"
+local obw_PATH = LIB_PATH.."SxOrbwalk.lua"
 local UPDATE_HOST = "raw.github.com"
 local UPDATE_PATH = "/Celtech/BOL/master/Brand.lua".."?rand="..math.random(1,10000)
 local UPDATE_FILE_PATH = SCRIPT_PATH..GetCurrentEnv().FILE_NAME
 local UPDATE_URL = "https://"..UPDATE_HOST..UPDATE_PATH
+local ScriptName = "[Hi I'm Brand]"
+local IgniteSlot = nil
+local Skills = {
+	SkillQ = { name = "Pillar Of Flame", range = 900, delay = 0.875, speed = math.huge, width = 125, ready = false },
+	SkillW = { name = "Pillar Of Flame", range = 900, delay = 0.875, speed = math.huge, width = 125, ready = false },
+	SkillE = { name = "Pillar Of Flame", range = 900, delay = 0.875, speed = math.huge, width = 125, ready = false },
+	SkillR = { name = "Pillar Of Flame", range = 900, delay = 0.875, speed = math.huge, width = 125, ready = false }
+}
 
 if (string.find(GetGameVersion(), 'Releases/5.24') ~= nil) then
 	skinsPB = {
@@ -68,21 +80,21 @@ function _AutoupdaterMsg(msg)
 	print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> "..msg.."</font>") 
 end
 if AUTOUPDATE then
-  local ServerData = GetWebResult(UPDATE_HOST, "/Celtech/BOL/master/brand.version")
-  if ServerData then
-    ServerVersion = type(tonumber(ServerData)) == "number" and tonumber(ServerData) or nil
-    if ServerVersion then
-      if tonumber(version) < ServerVersion then
-        _AutoupdaterMsg("New version available "..ServerVersion)
-        _AutoupdaterMsg("Updating, please don't press F9")
-        DelayAction(function() DownloadFile(UPDATE_URL, UPDATE_FILE_PATH, function () _AutoupdaterMsg("Successfully updated. ("..version.." => "..ServerVersion.."), press F9 twice to load the updated version.") end) end, 3)
-      else
-        _AutoupdaterMsg("You have got the latest version ("..ServerVersion..")")
-      end
-    end
-  else
-    _AutoupdaterMsg("Error downloading version info")
-  end
+	local ServerData = GetWebResult(UPDATE_HOST, "/Celtech/BOL/master/brand.version")
+	if ServerData then
+		ServerVersion = type(tonumber(ServerData)) == "number" and tonumber(ServerData) or nil
+		if ServerVersion then
+			if tonumber(version) < ServerVersion then
+				_AutoupdaterMsg("New version available "..ServerVersion)
+				_AutoupdaterMsg("Updating, please don't press F9")
+				DelayAction(function() DownloadFile(UPDATE_URL, UPDATE_FILE_PATH, function () _AutoupdaterMsg("Successfully updated. ("..version.." => "..ServerVersion.."), press F9 twice to load the updated version.") end) end, 3)
+			else
+				_AutoupdaterMsg("You have got the latest version ("..ServerVersion..")")
+			end
+		end
+	else
+		_AutoupdaterMsg("Error downloading version info")
+	end
 end
 
 if (not VIP_USER) then
@@ -102,6 +114,7 @@ function OnLoad()
 		
 		Orbwalker()
 		VP = VPrediction()
+		fetchIgnite()
 	elseif myHero.charName ~= "Brand" then
 		print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> Sorry, this script is not supported for this champion!</b></font>")
 		return    
@@ -114,13 +127,14 @@ function OnTick()
 		WREADY = (myHero:CanUseSpell(_W) == READY)
 		EREADY = (myHero:CanUseSpell(_E) == READY)
 		RREADY = (myHero:CanUseSpell(_R) == READY)
+		IREADY = (myHero:CanUseSpell(IgniteSlot) == READY)
 		Target = GetTarget()
 		enemyMinions:update()
 		ComboMode()
 		HarassMode()
+		KSMode()
 		LaneClearMode()
 		SkinStuff()
-		
 		if not Menu.draw.LagFree then _G.DrawCircle = _G.oldDrawCircle end
 		if Menu.draw.LagFree then
 			_G.DrawCircle = DrawCircle2
@@ -149,27 +163,47 @@ end
 
 function CastW()
 	if WREADY and ValidTarget(Target) then
-		local CastPosition, HitChance, Position = VP:GetCircularCastPosition(Target, .875, 250, 900, math.huge)
+		local CastPosition, HitChance, Position = VP:GetCircularCastPosition(Target, .875, 125, 900, math.huge)
 		if CastPosition and HitChance >= Menu.misc.WHitChance and GetDistance(CastPosition) < 1000 then
 			CastSpell(_W, CastPosition.x, CastPosition.z)
 		end
 	end
 end
 
+
 function CastR()
 	if RREADY and ValidTarget(Target) then
 		if GetDistance(Target) < 750 then
-			if GetRDmg(Target) > Target.health then
-				CastSpell(_R, Target)	
-			end
-		
-		
 			for _, enemy in ipairs(GetEnemyHeroes()) do  
 				if GetDistance(Target, enemy) < 300 and GetDistance(Target, enemy) > 0 then
 					CastSpell(_R, Target)	
 				end
 			end
 			
+		end
+	end
+end
+
+function KSMode()
+	if Menu.ks.useKS then
+		if IREADY and ValidTarget(Target) and Target.health <= (50 + (20 * Target.level)) and Menu.ks.useI then
+			CastSpell(IgniteSlot, Target)
+		end
+		
+		if QREADY and ValidTarget(Target) and  GetQDmg(Target) >= Target.health and Menu.ks.useR then
+			CastQ()	
+		end
+		
+		if WREADY and ValidTarget(Target) and GetWDmg(Target) >= Target.health and Menu.ks.useR then
+			CastW()
+		end
+		
+		if EREADY and ValidTarget(Target) and GetEDmg(Target) >= Target.health and Menu.ks.useR then
+			CastE()	
+		end
+		
+		if RREADY and ValidTarget(Target) and GetDistance(Target) < 750 and GetRDmg(Target) >= Target.health and Menu.ks.useR then
+			CastSpell(_R, Target)	
 		end
 	end
 end
@@ -232,14 +266,75 @@ function HarassMode()
 	end
 end
 
+function GetQDmg(unit)
+   local sLvl = myHero.GetSpellData(myHero,0).level
+   if sLvl < 1 then return 0 end
+   local baseDmg = {80,120,160,200,240}
+   local trueDmg = baseDmg[sLvl] + 0.65*myHero.ap
+   local finalDmg = unit.maxHealth * .08 + trueDmg
+   return myHero:CalcMagicDamage(unit, finalDmg)
+end
+
+function GetWDmg(unit)
+   local sLvl = myHero.GetSpellData(myHero,1).level
+   if sLvl < 1 then return 0 end
+   local baseDmg = {75,120,165,210,255}
+   local trueDmg = baseDmg[sLvl] + 0.60*myHero.ap
+   local finalDmg = unit.maxHealth * .08 + trueDmg
+   return myHero:CalcMagicDamage(unit, finalDmg)
+end
+
+function GetEDmg(unit)
+   local sLvl = myHero.GetSpellData(myHero,2).level
+   if sLvl < 1 then return 0 end
+   local baseDmg = {70,105,140,175,210}
+   local trueDmg = baseDmg[sLvl] + 0.55*myHero.ap
+   local finalDmg = unit.maxHealth * .08 + trueDmg
+   return myHero:CalcMagicDamage(unit, finalDmg)
+end
+
 function GetRDmg(unit)
-   local sLvl = 1
+   local sLvl = myHero.GetSpellData(myHero,3).level
    if sLvl < 1 then return 0 end
    local baseDmg = {150,250,350}
-   local scaledDmg = {.5,.5, .5}
-   local trueDmg = baseDmg[sLvl] + scaledDmg[sLvl]*myHero.ap
+   local trueDmg = baseDmg[sLvl] + 0.50*myHero.ap
    local finalDmg = unit.health * .08 + trueDmg
    return myHero:CalcMagicDamage(unit, finalDmg)
+end
+
+function comboDamage(unit)
+	local fullDamage = 0
+	if QREADY then
+		fullDamage = fullDamage + GetQDmg(unit)
+	end
+	
+	if WREADY then
+		fullDamage = fullDamage + GetWDmg(unit)
+	end
+	
+	if EREADY then
+		fullDamage = fullDamage + GetEDmg(unit)
+	end
+	
+	if RREADY then
+		fullDamage = fullDamage + GetRDmg(unit)
+	end
+	
+	if IREADY then
+		fullDamage = fullDamage + (50 + (20 * unit.level))
+	end
+	
+	fullDamage = fullDamage - unit.shield
+	
+	return math.floor((fullDamage / unit.health) * 100)
+end
+
+function drawDamage()
+	for _, enemy in ipairs(GetEnemyHeroes()) do  
+		if enemy.visible and not enemy.dead then
+			DrawText3D(tostring("You can burst " .. comboDamage(enemy) .. "% of thier health"), enemy.x, enemy.y, enemy.z, 16, ARGB(255, 255, 255, 255), true)
+		end
+	end
 end
 
 function InitMenu()
@@ -248,10 +343,11 @@ function InitMenu()
 	Menu:addSubMenu("Drawing Menu", "draw")
 	Menu.draw:addParam("LagFree", "Activate Lag Free Circles", 1, true)
 	Menu.draw:addParam("q", "Draw Q Range", 1, true)
-	Menu.draw:addParam("w", "Draw W Range", 1, false)
+	Menu.draw:addParam("w", "Draw W Range", 1, true)
 	Menu.draw:addParam("e", "Draw E Range", 1, false)
 	Menu.draw:addParam("r", "Draw R Range", 1, false)
-	Menu.draw:addParam("aa", "Draw AA Range", 1, true)
+	Menu.draw:addParam("aa", "Draw AA Range", 1, false)
+	Menu.draw:addParam("damage", "Draw Damage", 1, true)
 	
 	Menu:addSubMenu("Orbwalker Settings","obwc")
 	
@@ -308,6 +404,14 @@ function InitMenu()
 	Menu.clear:addParam("useE", "Use E in Lane Clear", 1, true)
 	Menu.clear:addParam("useR", "Use R in Lane Clear", 1, false)
 	
+	Menu:addSubMenu("Kill Steal Settings", "ks")
+	Menu.ks:addParam("useKS", "Use KS Mode", 1, true)
+	Menu.ks:addParam("useQ", "Use Q to Kill Steal", 1, true)
+	Menu.ks:addParam("useW", "Use W to Kill Steal", 1, true)
+	Menu.ks:addParam("useE", "Use E to Kill Steal", 1, false)
+	Menu.ks:addParam("useR", "Use R to Kill Steal", 1, false)
+	Menu.ks:addParam("useI", "Use Ingite to Kill Steal", 1, false)
+	
 	Menu:addSubMenu("Misc. Settings", "misc")
 	Menu.misc:addParam("WHitChance", "W Hit Chance", SCRIPT_PARAM_SLICE, 2, 1, 2, decimalPlace)
 	Menu.misc:addParam("QHitChance", "Q Hit Chance", SCRIPT_PARAM_SLICE, 2, 1, 2, decimalPlace)
@@ -315,42 +419,50 @@ function InitMenu()
 	Menu:addParam("", "", 5, "")
 	Menu:addParam('selected' .. myHero.charName .. 'Skin', 'Skin Changer', SCRIPT_PARAM_LIST, 1,skinMeta[myHero.charName]);	
 end
-
+function fetchIgnite()
+	if (myHero.GetSpellData(myHero,SUMMONER_1).name) == "summonerdot" then 
+		IgniteSlot = SUMMONER_1 
+	elseif (myHero.GetSpellData(myHero,SUMMONER_2).name) == "summonerdot" then 
+		IgniteSlot = SUMMONER_2
+	else 
+		return
+	end
+end
 function Orbwalker()
-  print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> Checking for external Orbwalkers! Please wait!</b></font>")
-  DelayAction(
+	print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> Checking for external Orbwalkers! Please wait!</b></font>")
+	DelayAction(
     function()
       -- MMA      
-      if _G.MMA_Loaded ~= nil then
-      print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> MMA Detected! Disabling SxOrbWalker!</b></font>")
-      Menu.obwc:addParam("mmafd", "MMA Detected", SCRIPT_PARAM_INFO)
-	  walker = "Hotkeys integrated with your MMA Keys"
-	  Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your MMA Keys", SCRIPT_PARAM_INFO, "")
-      MMA = true
-      obwwillwork = true
-      -- SAC R
-      elseif _G.AutoCarry ~= nil then
-      print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> SAC:R Detected</b></font>")
-      Menu.obwc:addParam("sacfd", "SAC:R Detected", SCRIPT_PARAM_INFO, "")
-	  Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your SAC:R Keys", SCRIPT_PARAM_INFO, "")
-	  walker = "Hotkeys integrated with your SAC:R Keys"
-      SAC = true
-      obwwillwork = true
-      -- SxOrbWalker
-      elseif FileExist(obw_PATH) then
-      print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> No external orbwalker found! Activating SxOrbWalker!</b></font>")
-      require("SxOrbwalk")
-      SxOrb:LoadToMenu(Menu.obwc)
-	  Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your SxOrbWalker Keys", SCRIPT_PARAM_INFO, "")
-	  walker = "Hotkeys integrated with your SxOrbWalker Keys"
-      SX = true
-      obwwillwork = true
-      elseif not FileExist(obw_PATH) then
-      obwwillwork = false
-      print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> Downloading SxOrbWalker. Dont press 2xF9! Please wait!</b></font>")      
-      --DownloadFile(obw_URL, obw_PATH, function() AutoupdaterMsg("<b><font color=\"#FF0000\">SxOrbWalker downloaded, please reload (2xF9)</b></font>") end)
-      return
-      end
+		if _G.MMA_Loaded ~= nil then
+			print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> MMA Detected! Disabling SxOrbWalker!</b></font>")
+			Menu.obwc:addParam("mmafd", "MMA Detected", SCRIPT_PARAM_INFO)
+			walker = "Hotkeys integrated with your MMA Keys"
+			Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your MMA Keys", SCRIPT_PARAM_INFO, "")
+			MMA = true
+			obwwillwork = true
+			-- SAC R
+		elseif _G.AutoCarry ~= nil then
+			print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> SAC:R Detected</b></font>")
+			Menu.obwc:addParam("sacfd", "SAC:R Detected", SCRIPT_PARAM_INFO, "")
+			Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your SAC:R Keys", SCRIPT_PARAM_INFO, "")
+			walker = "Hotkeys integrated with your SAC:R Keys"
+			SAC = true
+			obwwillwork = true
+			-- SxOrbWalker
+		elseif FileExist(obw_PATH) then
+			print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> No external orbwalker found! Activating SxOrbWalker!</b></font>")
+			require("SxOrbwalk")
+			SxOrb:LoadToMenu(Menu.obwc)
+			Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your SxOrbWalker Keys", SCRIPT_PARAM_INFO, "")
+			walker = "Hotkeys integrated with your SxOrbWalker Keys"
+			SX = true
+			obwwillwork = true
+		elseif not FileExist(obw_PATH) then
+			obwwillwork = false
+			print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> Downloading SxOrbWalker. Dont press 2xF9! Please wait!</b></font>")      
+			DownloadFile(obw_URL, obw_PATH, function() AutoupdaterMsg("<b><font color=\"#FF0000\">SxOrbWalker downloaded, please reload (2xF9)</b></font>") end)
+			return
+		end
     end, 10)
 end
 function LHKey()
@@ -431,6 +543,10 @@ function OnDraw()
 		
 		if Menu.draw.aa then
 			DrawCircle(myHero.x,myHero.y,myHero.z, 650, ARGB(255,255,255,255))
+		end
+		
+		if Menu.draw.damage then
+			drawDamage()
 		end
 	end
 end
