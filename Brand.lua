@@ -1,6 +1,5 @@
 require "VPrediction"
 
-
 local ts = TargetSelector(TARGET_LESS_CAST_PRIORITY, 1100)
 local enemyMinions = minionManager(MINION_ENEMY, 600, player, MINION_SORT_HEALTH_ASC)
 local VP = nil
@@ -66,7 +65,7 @@ elseif (string.find(GetGameVersion(), 'Releases/5.23') ~= nil) then
 end;
 
 function _AutoupdaterMsg(msg) 
-	print("<b><font color=\"#FF0000\">[Brand NAME TBD HERE]</font><font color=\"#FFFFFF\"> "..msg.."</font>") 
+	print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> "..msg.."</font>") 
 end
 if AUTOUPDATE then
   local ServerData = GetWebResult(UPDATE_HOST, "/Celtech/BOL/master/brand.version")
@@ -86,9 +85,14 @@ if AUTOUPDATE then
   end
 end
 
+if (not VIP_USER) then
+	print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> You must be a VIP to use this script :(</b></font>");
+	return;
+end
+
 function OnLoad()
 	if myHero.charName == "Brand" and tonumber(version) == ServerVersion then
-		print("<b><font color=\"#FF0000\">[Brand NAME TBD HERE]</font><font color=\"#FFFFFF\"> "..version.." loaded!</b></font>")
+		print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> "..version.." loaded!</b></font>")
 		InitMenu()
 		
 		_G.oldDrawCircle = rawget(_G, 'DrawCircle')
@@ -99,7 +103,7 @@ function OnLoad()
 		Orbwalker()
 		VP = VPrediction()
 	elseif myHero.charName ~= "Brand" then
-		print("<b><font color=\"#FF0000\">[Brand NAME TBD HERE]</font><font color=\"#FFFFFF\"> Sorry, this script is not supported for this champion!</b></font>")
+		print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> Sorry, this script is not supported for this champion!</b></font>")
 		return    
 	end
 end
@@ -313,12 +317,12 @@ function InitMenu()
 end
 
 function Orbwalker()
-  print("<b><font color=\"#FF0000\">[Brand NAME TBD HERE]</font><font color=\"#FFFFFF\"> Checking for external Orbwalkers! Please wait!</b></font>")
+  print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> Checking for external Orbwalkers! Please wait!</b></font>")
   DelayAction(
     function()
       -- MMA      
       if _G.MMA_Loaded ~= nil then
-      print("<b><font color=\"#FF0000\">[Brand NAME TBD HERE]</font><font color=\"#FFFFFF\"> MMA Detected! Disabling SxOrbWalker!</b></font>")
+      print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> MMA Detected! Disabling SxOrbWalker!</b></font>")
       Menu.obwc:addParam("mmafd", "MMA Detected", SCRIPT_PARAM_INFO)
 	  walker = "Hotkeys integrated with your MMA Keys"
 	  Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your MMA Keys", SCRIPT_PARAM_INFO, "")
@@ -326,7 +330,7 @@ function Orbwalker()
       obwwillwork = true
       -- SAC R
       elseif _G.AutoCarry ~= nil then
-      print("<b><font color=\"#FF0000\">[Brand NAME TBD HERE]</font><font color=\"#FFFFFF\"> SAC:R Detected</b></font>")
+      print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> SAC:R Detected</b></font>")
       Menu.obwc:addParam("sacfd", "SAC:R Detected", SCRIPT_PARAM_INFO, "")
 	  Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your SAC:R Keys", SCRIPT_PARAM_INFO, "")
 	  walker = "Hotkeys integrated with your SAC:R Keys"
@@ -334,7 +338,7 @@ function Orbwalker()
       obwwillwork = true
       -- SxOrbWalker
       elseif FileExist(obw_PATH) then
-      print("<b><font color=\"#FF0000\">[Brand NAME TBD HERE]</font><font color=\"#FFFFFF\"> No external orbwalker found! Activating SxOrbWalker!</b></font>")
+      print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> No external orbwalker found! Activating SxOrbWalker!</b></font>")
       require("SxOrbwalk")
       SxOrb:LoadToMenu(Menu.obwc)
 	  Menu.hotkeys:addParam("hkcon", "Hotkeys integrated with your SxOrbWalker Keys", SCRIPT_PARAM_INFO, "")
@@ -343,7 +347,7 @@ function Orbwalker()
       obwwillwork = true
       elseif not FileExist(obw_PATH) then
       obwwillwork = false
-      print("<b><font color=\"#FF0000\">[Brand NAME TBD HERE]</font><font color=\"#FFFFFF\"> Downloading SxOrbWalker. Dont press 2xF9! Please wait!</b></font>")      
+      print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> Downloading SxOrbWalker. Dont press 2xF9! Please wait!</b></font>")      
       --DownloadFile(obw_URL, obw_PATH, function() AutoupdaterMsg("<b><font color=\"#FF0000\">SxOrbWalker downloaded, please reload (2xF9)</b></font>") end)
       return
       end
