@@ -34,7 +34,7 @@ local lastTimeTickCalled = 0;
 local lastSkin = 0;
 local walker = "Hotkeys integrated with your SxOrbWalker Keys";
 local myHero = GetMyHero()
-local version = ".03"
+local version = ".04"
 local AUTOUPDATE = true
 local obw_URL = "https://raw.githubusercontent.com/Superx321/BoL/master/common/SxOrbWalk.lua"
 local obw_PATH = LIB_PATH.."SxOrbwalk.lua"
@@ -138,7 +138,9 @@ function OnTick()
 		WREADY = (myHero:CanUseSpell(_W) == READY)
 		EREADY = (myHero:CanUseSpell(_E) == READY)
 		RREADY = (myHero:CanUseSpell(_R) == READY)
-		IREADY = (myHero:CanUseSpell(IgniteSlot) == READY)
+		if not IgniteSlot == nil then
+			IREADY = (myHero:CanUseSpell(IgniteSlot) == READY)
+		end
 		Target = GetTarget()
 		enemyMinions:update()
 		ComboMode()
