@@ -1,3 +1,20 @@
+--[[
+	 /$$   /$$ /$$       /$$$$$$                     /$$$$$$$                                     /$$
+	| $$  | $$|__/      |_  $$_/                    | $$__  $$                                   | $$
+	| $$  | $$ /$$        | $$   /$$$$$$/$$$$       | $$  \ $$  /$$$$$$  /$$$$$$  /$$$$$$$   /$$$$$$$
+	| $$$$$$$$| $$        | $$  | $$_  $$_  $$      | $$$$$$$  /$$__  $$|____  $$| $$__  $$ /$$__  $$
+	| $$__  $$| $$        | $$  | $$ \ $$ \ $$      | $$__  $$| $$  \__/ /$$$$$$$| $$  \ $$| $$  | $$
+	| $$  | $$| $$        | $$  | $$ | $$ | $$      | $$  \ $$| $$      /$$__  $$| $$  | $$| $$  | $$
+	| $$  | $$| $$       /$$$$$$| $$ | $$ | $$      | $$$$$$$/| $$     |  $$$$$$$| $$  | $$|  $$$$$$$
+	|__/  |__/|__/      |______/|__/ |__/ |__/      |_______/ |__/      \_______/|__/  |__/ \_______/
+                                                                                                 
+	Created: by Lulceltech
+	Special thanks to: Sida, PewPewPew, S1mple, Totally Legit, and Ralphlol
+	
+	Version: 0.300
+	Last Updated: 01/11/15 for Patch 5.24
+]]
+
 require "VPrediction"
 
 local ts = TargetSelector(TARGET_LESS_CAST_PRIORITY, 1100)
@@ -27,12 +44,6 @@ local UPDATE_FILE_PATH = SCRIPT_PATH..GetCurrentEnv().FILE_NAME
 local UPDATE_URL = "https://"..UPDATE_HOST..UPDATE_PATH
 local ScriptName = "[Hi I'm Brand]"
 local IgniteSlot = nil
-local Skills = {
-	SkillQ = { name = "Pillar Of Flame", range = 900, delay = 0.875, speed = math.huge, width = 125, ready = false },
-	SkillW = { name = "Pillar Of Flame", range = 900, delay = 0.875, speed = math.huge, width = 125, ready = false },
-	SkillE = { name = "Pillar Of Flame", range = 900, delay = 0.875, speed = math.huge, width = 125, ready = false },
-	SkillR = { name = "Pillar Of Flame", range = 900, delay = 0.875, speed = math.huge, width = 125, ready = false }
-}
 
 if (string.find(GetGameVersion(), 'Releases/5.24') ~= nil) then
 	skinsPB = {
@@ -104,7 +115,7 @@ end
 
 function OnLoad()
 	if myHero.charName == "Brand" and tonumber(version) == ServerVersion then
-		print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> "..version.." loaded!</b></font>")
+		print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> "..version.." loaded!</b></font>")
 		InitMenu()
 		
 		_G.oldDrawCircle = rawget(_G, 'DrawCircle')
@@ -116,7 +127,7 @@ function OnLoad()
 		VP = VPrediction()
 		fetchIgnite()
 	elseif myHero.charName ~= "Brand" then
-		print("<b><font color=\"#FF0000\">[Hi I'm Brand]</font><font color=\"#FFFFFF\"> Sorry, this script is not supported for this champion!</b></font>")
+		print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> Sorry, this script is not supported for this champion!</b></font>")
 		return    
 	end
 end
@@ -178,8 +189,7 @@ function CastR()
 				if GetDistance(Target, enemy) < 300 and GetDistance(Target, enemy) > 0 then
 					CastSpell(_R, Target)	
 				end
-			end
-			
+			end			
 		end
 	end
 end
