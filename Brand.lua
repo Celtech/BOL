@@ -138,7 +138,7 @@ function OnTick()
 		WREADY = (myHero:CanUseSpell(_W) == READY)
 		EREADY = (myHero:CanUseSpell(_E) == READY)
 		RREADY = (myHero:CanUseSpell(_R) == READY)
-		if not IgniteSlot == nil then
+		if IgniteSlot ~= nil then
 			IREADY = (myHero:CanUseSpell(IgniteSlot) == READY)
 		end
 		Target = GetTarget()
