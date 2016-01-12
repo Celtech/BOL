@@ -11,8 +11,8 @@
 	Created: by Lulceltech
 	Special thanks to: Sida, PewPewPew, S1mple, Totally Legit, and Ralphlol
 	
-	Version: 0.300
-	Last Updated: 01/11/15 for Patch 5.24
+	Version: 0.04
+	Last Updated: 01/12/15 for Patch 5.24
 ]]
 
 require "VPrediction"
