@@ -14,8 +14,8 @@
 	Created: by Lulceltech
 	Special thanks to: Sida, PewPewPew, S1mple, Totally Legit, and Ralphlol
 	
-	Version: 0.300
-	Last Updated: 01/11/15 for Patch 5.24
+	Version: 0.03
+	Last Updated: 01/14/15 for Patch 6.01
 ]]
 
 require "VPrediction"
@@ -38,7 +38,7 @@ local lastTimeTickCalled2 = 0;
 local lastSkin = 0;
 local walker = "Hotkeys integrated with your SxOrbWalker Keys";
 local myHero = GetMyHero()
-local version = ".01"
+local version = ".03"
 local AUTOUPDATE = true
 local obw_URL = "https://raw.githubusercontent.com/Superx321/BoL/master/common/SxOrbWalk.lua"
 local obw_PATH = LIB_PATH.."SxOrbwalk.lua"
