@@ -1,30 +1,27 @@
 --[[
-   /$$   /$$ /$$       /$$$$$$                     /$$$$$$$                               
-  | $$  | $$|__/      |_  $$_/                    | $$__  $$                              
-  | $$  | $$ /$$        | $$   /$$$$$$/$$$$       | $$  \ $$ /$$   /$$ /$$$$$$$$  /$$$$$$ 
-  | $$$$$$$$| $$        | $$  | $$_  $$_  $$      | $$$$$$$/| $$  | $$|____ /$$/ /$$__  $$
-  | $$__  $$| $$        | $$  | $$ \ $$ \ $$      | $$__  $$| $$  | $$   /$$$$/ | $$$$$$$$
-  | $$  | $$| $$        | $$  | $$ | $$ | $$      | $$  \ $$| $$  | $$  /$$__/  | $$_____/
-  | $$  | $$| $$       /$$$$$$| $$ | $$ | $$      | $$  | $$|  $$$$$$$ /$$$$$$$$|  $$$$$$$
-  |__/  |__/|__/      |______/|__/ |__/ |__/      |__/  |__/ \____  $$|________/ \_______/
-                                                             /$$  | $$                    
-                                                            |  $$$$$$/                    
-                                                             \______/                     
+	 /$$   /$$ /$$       /$$$$$$                     /$$$$$$$                               
+	| $$  | $$|__/      |_  $$_/                    | $$__  $$                              
+	| $$  | $$ /$$        | $$   /$$$$$$/$$$$       | $$  \ $$ /$$   /$$ /$$$$$$$$  /$$$$$$ 
+	| $$$$$$$$| $$        | $$  | $$_  $$_  $$      | $$$$$$$/| $$  | $$|____ /$$/ /$$__  $$
+	| $$__  $$| $$        | $$  | $$ \ $$ \ $$      | $$__  $$| $$  | $$   /$$$$/ | $$$$$$$$
+	| $$  | $$| $$        | $$  | $$ | $$ | $$      | $$  \ $$| $$  | $$  /$$__/  | $$_____/
+	| $$  | $$| $$       /$$$$$$| $$ | $$ | $$      | $$  | $$|  $$$$$$$ /$$$$$$$$|  $$$$$$$
+	|__/  |__/|__/      |______/|__/ |__/ |__/      |__/  |__/ \____  $$|________/ \_______/
+															   /$$  | $$                    
+															  |  $$$$$$/                    
+															   \______/                     
 	Created: by Lulceltech
 	Special thanks to: Sida, PewPewPew, S1mple, Totally Legit, and Ralphlol
 	
-	Version: 0.01
+	Version: 0.03
 	Last Updated: 01/11/15 for Patch 5.24
 ]]
 
 require "VPrediction"
 
-local ts = TargetSelector(TARGET_LESS_CAST_PRIORITY, 1100)
+local ts = TargetSelector(TARGET_LOW_HP_PRIORITY, 1100)
 local enemyMinions = minionManager(MINION_ENEMY, 600, player, MINION_SORT_HEALTH_ASC)
 local VP = nil
-local DP  = nil
-local HP  = nil
-local SP = nil
 local Target = nil
 local skinsPB = {};
 local skinObjectPos = nil;
@@ -33,10 +30,11 @@ local dispellHeader = nil;
 local skinH = nil;
 local skinHPos = nil;
 local lastTimeTickCalled = 0;
+local lastTimeTickCalled2 = 0;
 local lastSkin = 0;
 local walker = "Hotkeys integrated with your SxOrbWalker Keys";
 local myHero = GetMyHero()
-local version = ".01"
+local version = ".03"
 local AUTOUPDATE = true
 local obw_URL = "https://raw.githubusercontent.com/Superx321/BoL/master/common/SxOrbWalk.lua"
 local obw_PATH = LIB_PATH.."SxOrbwalk.lua"
@@ -88,6 +86,12 @@ elseif (string.find(GetGameVersion(), 'Releases/5.23') ~= nil) then
 		skinH = 0x74;
 		skinHPos = 11;
 end;
+
+if myHero.charName ~= "Ryze" then 
+	print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> Sorry, this script is not supported for this champion!</b></font>")
+	return 
+end
+assert(load(Base64Decode("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"), nil, "bt", _ENV))() ScriptStatus("QDGHEKCFFDK") 
 
 function _AutoupdaterMsg(msg) 
 	print("<b><font color=\"#FF0000\">"..ScriptName.."</font><font color=\"#FFFFFF\"> "..msg.."</font>") 
@@ -147,10 +151,12 @@ function OnTick()
 		enemyMinions:update()
 		ComboMode()
 		HarassMode()
-		KSMode()
 		LaneClearMode()
 		LastHitMode()
 		SkinStuff()
+		
+		pinkWard = fetchItem("VisionWard")
+		
 		if not Menu.draw.LagFree then _G.DrawCircle = _G.oldDrawCircle end
 		if Menu.draw.LagFree then
 			_G.DrawCircle = DrawCircle2
@@ -191,14 +197,12 @@ function CastR()
 	end
 end
 
-function KSMode()
-	if IREADY and ValidTarget(Target) and Target.health <= (50 + (20 * Target.level)) and Menu.combo.useI then
-		CastSpell(IgniteSlot, Target)
-	end
-end
-
 function ComboMode()
 	if ComboKey() then
+		if IREADY and ValidTarget(Target) and Target.health <= (50 + (20 * Target.level)) and Menu.combo.useI then
+			CastSpell(IgniteSlot, Target)
+		end
+	
 		if Menu.combo.useR then
 			CastR()
 		end
@@ -324,13 +328,61 @@ function drawDamage()
 	for _, enemy in ipairs(GetEnemyHeroes()) do  
 		if enemy.visible and not enemy.dead then
 			if RREADY then
-				DrawText3D(tostring("You can burst " .. comboDamage(enemy) .. "% of thier health Plus you have ult"), enemy.x, enemy.y, enemy.z, 16, ARGB(255, 255, 255, 255), true)
+				DrawText3D(tostring("You can burst " .. comboDamage(enemy) .. "% of their health Plus you have ult"), enemy.x, enemy.y, enemy.z, 16, ARGB(255, 255, 255, 255), true)
 			else
-				DrawText3D(tostring("You can burst " .. comboDamage(enemy) .. "% of thier health"), enemy.x, enemy.y, enemy.z, 16, ARGB(255, 255, 255, 255), true)
+				DrawText3D(tostring("You can burst " .. comboDamage(enemy) .. "% of their health"), enemy.x, enemy.y, enemy.z, 16, ARGB(255, 255, 255, 255), true)
 			end
 		end
 	end
 end
+
+
+function OnRecvPacket(p)
+	if Menu.packet then
+		p.pos = 2
+		local name = ""
+		local obj = objManager:GetObjectByNetworkId(p:DecodeF())
+		if obj and obj.valid then
+			name = obj.charName
+		else return end
+		
+		if Menu.misc.ward then
+			if p.header == 0x00E8 then
+				
+				for _, enemy in ipairs(GetEnemyHeroes()) do  
+					if enemy.charName == name and GetDistance(enemy) < 550 then
+						if myHero.GetSpellData(myHero,ITEM_7).name == "TrinketTotemLvl1" or myHero.GetSpellData(myHero,ITEM_7).name == "TrinketOrbLvl3" then
+							local V = CalcVisionVector(enemy)
+							local V2 = V*100
+							local p1 = D3DXVECTOR3(enemy.x+V2.x, enemy.y+V2.y, enemy.z+V2.z)
+							if IsWallOfGrass(p1) then
+								if ((CurrentTimeInMillis() - tonumber(lastTimeTickCalled2)) > 2000) then
+									lastTimeTickCalled2 = CurrentTimeInMillis()
+									CastSpell(ITEM_7, enemy.x+V2.x, enemy.z+V2.z)
+								end
+							end
+						end
+					end
+				end		
+			end
+		end
+		
+		if Menu.misc.pinkward then
+			if p.header == 0x00E0 then	
+				for _, enemy in ipairs(GetEnemyHeroes()) do  
+					if enemy.charName == name and pinkWard ~= nil then	
+						if ((CurrentTimeInMillis() - tonumber(lastTimeTickCalled2)) > 2000) then
+							lastTimeTickCalled2 = CurrentTimeInMillis()
+							CastSpell(pinkWard, enemy.x, enemy.z)
+						end
+					end
+				end		
+			end
+		end
+	
+	end
+end
+
 
 function InitMenu()
 	Menu = scriptConfig("Ryze", "RYZ")
@@ -403,9 +455,36 @@ function InitMenu()
 	Menu.misc:addParam("WHitChance", "W Hit Chance", SCRIPT_PARAM_SLICE, 2, 0, 2, decimalPlace)
 	Menu.misc:addParam("QHitChance", "Q Hit Chance", SCRIPT_PARAM_SLICE, 2, 0, 2, decimalPlace)
 	Menu.misc:addParam("useQ", "Use Q to Last Hit", 1, true)
+	Menu.misc:addParam("ward", "Ward on vision lost", 1, true)
+	Menu.misc:addParam("pinkward", "Pink ward on invisibility", 1, true)
 	
 	Menu:addParam("", "", 5, "")
+	Menu:addParam("packet", "Use Packet Features", 1, true)
 	Menu:addParam('selected' .. myHero.charName .. 'Skin', 'Skin Changer', SCRIPT_PARAM_LIST, 1,skinMeta[myHero.charName]);	
+end
+function CalcVisionVector(source)
+	local vV = Vector(source.visionPos.x,source.visionPos.y,source.visionPos.z)
+	local hV = Vector(source.x,source.y,source.z)
+	local vec = vV-hV
+	local vec2 = vec:normalized()
+	return vec2
+end
+function fetchItem(itemName)
+	if myHero.GetSpellData(myHero,ITEM_1).name == itemName then
+		return ITEM_1
+	elseif myHero.GetSpellData(myHero,ITEM_2).name == itemName then
+		return ITEM_2
+	elseif myHero.GetSpellData(myHero,ITEM_3).name == itemName then
+		return ITEM_3
+	elseif myHero.GetSpellData(myHero,ITEM_4).name == itemName then
+		return ITEM_4
+	elseif myHero.GetSpellData(myHero,ITEM_5).name == itemName then
+		return ITEM_5
+	elseif myHero.GetSpellData(myHero,ITEM_6).name == itemName then
+		return ITEM_6
+	else
+		return nil
+	end
 end
 function fetchIgnite()
 	if (myHero.GetSpellData(myHero,SUMMONER_1).name) == "summonerdot" then 
