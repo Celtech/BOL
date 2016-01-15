@@ -7,14 +7,14 @@
 	| $$  | $$| $$        | $$  | $$ | $$ | $$      | $$  \ $$| $$  | $$  /$$__/  | $$_____/
 	| $$  | $$| $$       /$$$$$$| $$ | $$ | $$      | $$  | $$|  $$$$$$$ /$$$$$$$$|  $$$$$$$
 	|__/  |__/|__/      |______/|__/ |__/ |__/      |__/  |__/ \____  $$|________/ \_______/
-															   /$$  | $$                    
-															  |  $$$$$$/                    
-															   \______/                     
+								   /$$  | $$                    
+								  |  $$$$$$/                    
+								   \______/                     
 	Created: by Lulceltech
 	Special thanks to: Sida, PewPewPew, S1mple, Totally Legit, and Ralphlol
 	
 	Version: 0.03
-	Last Updated: 01/11/15 for Patch 5.24
+	Last Updated: 01/14/15 for Patch 6.01
 ]]
 
 require "VPrediction"
