@@ -243,9 +243,7 @@ function ReturnSSByLetter(unit, slot)
 		end
 	end
 end
-	local sPos = WorldToScreen(D3DXVECTOR3(x, y, z))
-	DrawText(text, size, sPos.x, sPos.y, color)
-end
+
 function SnapWardPlacements()
 	for _, spots in pairs(wardPos) do
 		if mPos3D(mousePos.x, mousePos.z, spots[1], spots[2], spots[3]) then
