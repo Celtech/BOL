@@ -34,7 +34,7 @@ local lastTimeTickCalled2 = 0;
 local lastSkin = 0;
 local walker = "Hotkeys integrated with your SxOrbWalker Keys";
 local myHero = GetMyHero()
-local version = ".03"
+local version = ".04"
 local AUTOUPDATE = true
 local obw_URL = "https://raw.githubusercontent.com/Superx321/BoL/master/common/SxOrbWalk.lua"
 local obw_PATH = LIB_PATH.."SxOrbwalk.lua"
@@ -337,51 +337,6 @@ function drawDamage()
 end
 
 
-function OnRecvPacket(p)
-	if Menu.packet then
-		p.pos = 2
-		local name = ""
-		local obj = objManager:GetObjectByNetworkId(p:DecodeF())
-		if obj and obj.valid then
-			name = obj.charName
-		else return end
-		
-		if Menu.misc.ward then
-			if p.header == 0x00E8 then
-				
-				for _, enemy in ipairs(GetEnemyHeroes()) do  
-					if enemy.charName == name and GetDistance(enemy) < 550 then
-						if myHero.GetSpellData(myHero,ITEM_7).name == "TrinketTotemLvl1" or myHero.GetSpellData(myHero,ITEM_7).name == "TrinketOrbLvl3" then
-							local V = CalcVisionVector(enemy)
-							local V2 = V*100
-							local p1 = D3DXVECTOR3(enemy.x+V2.x, enemy.y+V2.y, enemy.z+V2.z)
-							if IsWallOfGrass(p1) then
-								if ((CurrentTimeInMillis() - tonumber(lastTimeTickCalled2)) > 2000) then
-									lastTimeTickCalled2 = CurrentTimeInMillis()
-									CastSpell(ITEM_7, enemy.x+V2.x, enemy.z+V2.z)
-								end
-							end
-						end
-					end
-				end		
-			end
-		end
-		
-		if Menu.misc.pinkward then
-			if p.header == 0x00E0 then	
-				for _, enemy in ipairs(GetEnemyHeroes()) do  
-					if enemy.charName == name and pinkWard ~= nil then	
-						if ((CurrentTimeInMillis() - tonumber(lastTimeTickCalled2)) > 2000) then
-							lastTimeTickCalled2 = CurrentTimeInMillis()
-							CastSpell(pinkWard, enemy.x, enemy.z)
-						end
-					end
-				end		
-			end
-		end
-	
-	end
-end
 
 
 function InitMenu()
