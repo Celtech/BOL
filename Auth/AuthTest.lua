@@ -1,24 +1,26 @@
 function OnLoad()
-    HiImAuthenticated()
+    HiImAuthenticated("localhost", "/AuthTest/CheckAuth.php")
 end
 
 function OnTick()
 	if AUTH == true then
-		print("You Are Authed")
+
 	end
 end
 
 class "HiImAuthenticated"
-function HiImAuthenticated:__init()
+function HiImAuthenticated:__init(Host, Path)
 	print("<b><font color=\"#3399FF\">Hi I'm Authenticating:</font></b> <font color=\"#FFFFFF\"> Checking Authentication Status</font>")
-	startTime = os.clock()
-	AddUnloadCallback(function() self:Report() end)
-	self.Auth()
+	self.startTime = os.clock()
+	self:Auth(Host, Path)
+	self.AUTHED = false
+	AddUnloadCallback(function() self:Report(self.startTime, Host, Path) end)
 end
-function HiImAuthenticated:Auth()
+function HiImAuthenticated:Auth(Host,Path)
 	local socket = require("socket")
-	client = socket.connect("localhost", 80)
-	client:send("GET /AuthTest/CheckAuth.php?user=" .. Base64Encode(GetUser()) .. "&state=0&time=0 HTTP/1.0\r\n\r\n")
+	print(Host .. Path)
+	local client = socket.connect(Host, 80)
+	client:send("GET " .. Path .. "?user=" .. Base64Encode(GetUser()) .. "&state=0&time=0 HTTP/1.0\r\n\r\n")
 		while true do
 		s, status, partial = client:receive(1024)
 		
@@ -43,9 +45,9 @@ function HiImAuthenticated:Auth()
 	end
 	client:close()
 end
-function HiImAuthenticated:Report()
+function HiImAuthenticated:Report(startTime, Host, Path)
 	local socket = require("socket")
-	client = socket.connect("localhost", 80)
-	client:send("GET /AuthTest/CheckAuth.php?time=" .. math.ceil((os.clock() - startTime) / 60) .. "&user=" .. Base64Encode(GetUser()) .. "&state=1 HTTP/1.0\r\n\r\n")
+	client = socket.connect(Host, 80)
+	client:send("GET " .. Path .. "?time=" .. math.ceil((os.clock() - startTime) / 60) .. "&user=" .. Base64Encode(GetUser()) .. "&state=1 HTTP/1.0\r\n\r\n")
 	client:close()
 end
