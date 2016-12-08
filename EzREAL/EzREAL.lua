@@ -70,9 +70,9 @@ function OnLoad()
         Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulse Fire", "TPA", "Debonair", "Ace of Spades", "Arcade"})
     else Menu:addParam("Packets", "Packets have been disabled, you're not VIP!", SCRIPT_PARAM_INFO, "") end
 
+    CheckUpdates()
     Libraries()
     Vip()
-    BaseUlt()
 
     DelayAction(function()
         Ezreal()
@@ -94,7 +94,7 @@ function Ezreal:__init()
         R = {Range = 9999, Speed = 2000, Collision = false}
     }
 
-    if WALKERLOADED and PREDICTIONLOADED then
+    if WALKERLOADED and PREDICTIONLOADED and UPDATED then
         AddTickCallback(function() self:Init() end)
         AddDrawCallback(function() self:OnDraw() end)
         AddTickCallback(function() self:Combo() end)
@@ -524,8 +524,33 @@ function Vip:__init()
     self.lastSkin = 0
     self.firstBuy = true
     self.qOff, self.wOff, self.eOff, self.rOff = 0,0,0,0
+    self.packets = {
+        ["Items"] = {
+            ["Header"] = 0x0040,
+            ["VTable"] = 0xF877A0,
+            ["Packets"] = {0x8D, 0x12},
+            ["ID"] = {
+                ["Health Potion"] = {0x00C6,0x000A},
+        		["Warding Totem (Trinket)"] = {0x000F,0x001F},
+        		["Doran's Blade"] = {0x0000,0x0016},
+        		["Blue Trinket"] = {0x0004,0x001F}
+            }
+        },
+        ["Emotes"] = {
+            ["Header"] = 0x007C,
+            ["VTable"] = 0x103DB08,
+            ["Packets"] = {0x5D},
+            ["ID"] = {0x11,0x31,0x21,0x01}
+        },
+        ["Mastery"] = {
+            ["Header"] = 0x000A,
+            ["VTable"] = 0x1075A14,
+            ["Packets"] = {0x5D},
+        }
+    }
 
 	if (VIP_USER) and Menu.Packets then
+        BaseUlt()
         AddTickCallback(function() self:AutoBuy() end)
         AddTickCallback(function() self:TauntOnKill() end)
         AddTickCallback(function() self:SkinChanger() end)
@@ -544,18 +569,17 @@ function Vip:TauntOnKill()
 	end
 end
 function Vip:SendEmote(id)
-	local Emote = {0x11,0x31,0x21,0x01}
-	local p = CLoLPacket(0x0072)
-	p.vTable = 0xFDCBF4
+	local p = CLoLPacket(self.packets.Emotes.Header)
+	p.vTable = self.packets.Emotes.VTable
     p:EncodeF(myHero.networkID)
-	p:Encode1(Emote[id])
+	p:Encode1(self.packets.Emotes.ID[id])
 	SendPacket(p)
 end
 function Vip:SendMastery()
-	local p = CLoLPacket(0x00B4)
-	p.vTable = 0x1034720
+	local p = CLoLPacket(self.packets.Mastery.Header)
+	p.vTable = self.packets.Mastery.VTable
 	p:EncodeF(myHero.networkID)
-	for i = 1, 4 do p:Encode1(0x5D) end
+	for i = 1, 4 do p:Encode1(self.packets.Mastery.Packets[1]) end
 	SendPacket(p)
 end
 function Vip:SkinChanger()
@@ -565,20 +589,13 @@ function Vip:SkinChanger()
     end
 end
 function Vip:BuyItem(Item)
-	local items = {
-		["Health Potion"] = {0x00C6,0x000A},
-		["Warding Totem (Trinket)"] = {0x000F,0x001F},
-		["Doran's Blade"] = {0x0000,0x0016},
-		["Blue Trinket"] = {0x0004,0x001F}
-	}
-
-   local p = CLoLPacket(0x0043)
-   p.vTable = 0x1020C60
+   local p = CLoLPacket(self.packets.Items.Header)
+   p.vTable = self.packets.Items.VTable
    p:EncodeF(myHero.networkID)
-   p:Encode1(0x8D)
-   p:Encode1(items[Item][1])--Item Specific
-   p:Encode1(items[Item][2])--Item Specific
-   for i = 1, 2 do p:Encode1(0x12) end
+   p:Encode1(self.packets.Items.Packets[1])
+   p:Encode1(self.packets.Items.ID[Item][1])
+   p:Encode1(self.packets.Items.ID[Item][2])
+   for i = 1, 2 do p:Encode1(self.packets.Items.Packets[2]) end
    SendPacket(p)
 end
 function Vip:AutoBuy()
@@ -627,7 +644,7 @@ class "BaseUlt"
 function BaseUlt:__init()
     self.Packets = {
 		['Recall'] = {
-			['Header'] = 0x00A7,
+			['Header'] = 0x00BB,
 			['pos'] = 31,
 			['stringPos'] = 6,
 			['tpPos'] = 22,
@@ -726,7 +743,6 @@ end
 function BaseUlt:DoUlt()
     self.time = GetDistance(myHero, self.BaseSpots[2]) / 2000
     for i, snipeTarget in pairs(self.ActiveRecalls) do
-        print((snipeTarget.hpRegen * 7.9))
         if (snipeTarget.endT - os.clock()) <= self.time + 1 and Ezreal:UltDamage(snipeTarget.object) > snipeTarget.startHP + (snipeTarget.hpRegen * 7.9) then
             CastSpell(_R, self:GetBaseCoords().x, self:GetBaseCoords().z)
         end
@@ -758,4 +774,205 @@ function BaseUlt:GetHeroFromName(name)
     end
 
     return nil
+end
+
+class "SxScriptUpdate"
+function CheckUpdates()
+	local ToUpdate = {}
+    ToUpdate.Version = .01
+    ToUpdate.UseHttps = true
+    ToUpdate.Host = "raw.githubusercontent.com"
+    ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
+    ToUpdate.ScriptPath =  "/Celtech/BOL/master/EzREAL/EzREAL.lua"
+    ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
+    ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) Core:Log("Updated to v"..NewVersion) end
+    ToUpdate.CallbackNoUpdate = function(OldVersion) Core:Log("No Updates Found")
+        UPDATED = true
+    end
+    ToUpdate.CallbackNewVersion = function(NewVersion) Core:Log("New Version found ("..NewVersion.."). Please wait until its downloaded then F9x2") end
+    ToUpdate.CallbackError = function(NewVersion) Core:Log("Error while Downloading. Please try again.") end
+    SxScriptUpdate(ToUpdate.Version,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError)
+end
+function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptPath, SavePath, CallbackUpdate, CallbackNoUpdate, CallbackNewVersion,CallbackError)
+    self.LocalVersion = LocalVersion
+    self.Host = Host
+    self.VersionPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..VersionPath)..'&rand='..math.random(99999999)
+    self.ScriptPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..ScriptPath)..'&rand='..math.random(99999999)
+    self.SavePath = SavePath
+    self.CallbackUpdate = CallbackUpdate
+    self.CallbackNoUpdate = CallbackNoUpdate
+    self.CallbackNewVersion = CallbackNewVersion
+    self.CallbackError = CallbackError
+    AddDrawCallback(function() self:OnDraw() end)
+    self:CreateSocket(self.VersionPath)
+    self.DownloadStatus = 'Connect to Server for VersionInfo'
+    AddTickCallback(function() self:GetOnlineVersion() end)
+end
+function SxScriptUpdate:print(str)
+    print('<font color="#FFFFFF">'..os.clock()..': '..str)
+end
+function SxScriptUpdate:OnDraw()
+    if self.DownloadStatus ~= 'Downloading Script (100%)' and self.DownloadStatus ~= 'Downloading VersionInfo (100%)'then
+        DrawText('Download Status: '..(self.DownloadStatus or 'Unknown'),50,10,50,ARGB(0xFF,0xFF,0xFF,0xFF))
+    end
+end
+function SxScriptUpdate:CreateSocket(url)
+    if not self.LuaSocket then
+        self.LuaSocket = require("socket")
+    else
+        self.Socket:close()
+        self.Socket = nil
+        self.Size = nil
+        self.RecvStarted = false
+    end
+    self.LuaSocket = require("socket")
+    self.Socket = self.LuaSocket.tcp()
+    self.Socket:settimeout(0, 'b')
+    self.Socket:settimeout(99999999, 't')
+    self.Socket:connect('sx-bol.eu', 80)
+    self.Url = url
+    self.Started = false
+    self.Lastprint = ""
+    self.File = ""
+end
+function SxScriptUpdate:Base64Encode(data)
+    local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    return ((data:gsub('.', function(x)
+        local r,b='',x:byte()
+        for i=8,1,-1 do r=r..(b%2^i-b%2^(i-1)>0 and '1' or '0') end
+        return r;
+    end)..'0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
+        if (#x < 6) then return '' end
+        local c=0
+        for i=1,6 do c=c+(x:sub(i,i)=='1' and 2^(6-i) or 0) end
+        return b:sub(c+1,c+1)
+    end)..({ '', '==', '=' })[#data%3+1])
+end
+function SxScriptUpdate:GetOnlineVersion()
+    if self.GotScriptVersion then return end
+
+    self.Receive, self.Status, self.Snipped = self.Socket:receive(1024)
+    if self.Status == 'timeout' and not self.Started then
+        self.Started = true
+        self.Socket:send("GET "..self.Url.." HTTP/1.1\r\nHost: sx-bol.eu\r\n\r\n")
+    end
+    if (self.Receive or (#self.Snipped > 0)) and not self.RecvStarted then
+        self.RecvStarted = true
+        self.DownloadStatus = 'Downloading VersionInfo (0%)'
+    end
+
+    self.File = self.File .. (self.Receive or self.Snipped)
+    if self.File:find('</s'..'ize>') then
+        if not self.Size then
+            self.Size = tonumber(self.File:sub(self.File:find('<si'..'ze>')+6,self.File:find('</si'..'ze>')-1))
+        end
+        if self.File:find('<scr'..'ipt>') then
+            local _,ScriptFind = self.File:find('<scr'..'ipt>')
+            local ScriptEnd = self.File:find('</scr'..'ipt>')
+            if ScriptEnd then ScriptEnd = ScriptEnd - 1 end
+            local DownloadedSize = self.File:sub(ScriptFind+1,ScriptEnd or -1):len()
+            self.DownloadStatus = 'Downloading VersionInfo ('..math.round(100/self.Size*DownloadedSize,2)..'%)'
+        end
+    end
+    if self.File:find('</scr'..'ipt>') then
+        self.DownloadStatus = 'Downloading VersionInfo (100%)'
+        local a,b = self.File:find('\r\n\r\n')
+        self.File = self.File:sub(a,-1)
+        self.NewFile = ''
+        for line,content in ipairs(self.File:split('\n')) do
+            if content:len() > 5 then
+                self.NewFile = self.NewFile .. content
+            end
+        end
+        local HeaderEnd, ContentStart = self.File:find('<scr'..'ipt>')
+        local ContentEnd, _ = self.File:find('</sc'..'ript>')
+        if not ContentStart or not ContentEnd then
+            if self.CallbackError and type(self.CallbackError) == 'function' then
+                self.CallbackError()
+            end
+        else
+            self.OnlineVersion = (Base64Decode(self.File:sub(ContentStart + 1,ContentEnd-1)))
+            self.OnlineVersion = tonumber(self.OnlineVersion)
+            if self.OnlineVersion > self.LocalVersion then
+                if self.CallbackNewVersion and type(self.CallbackNewVersion) == 'function' then
+                    self.CallbackNewVersion(self.OnlineVersion,self.LocalVersion)
+                end
+                self:CreateSocket(self.ScriptPath)
+                self.DownloadStatus = 'Connect to Server for ScriptDownload'
+                AddTickCallback(function() self:DownloadUpdate() end)
+            else
+                if self.CallbackNoUpdate and type(self.CallbackNoUpdate) == 'function' then
+                    self.CallbackNoUpdate(self.LocalVersion)
+                end
+            end
+        end
+        self.GotScriptVersion = true
+    end
+end
+function SxScriptUpdate:DownloadUpdate()
+    if self.GotSxScriptUpdate then return end
+    self.Receive, self.Status, self.Snipped = self.Socket:receive(1024)
+    if self.Status == 'timeout' and not self.Started then
+        self.Started = true
+        self.Socket:send("GET "..self.Url.." HTTP/1.1\r\nHost: sx-bol.eu\r\n\r\n")
+    end
+    if (self.Receive or (#self.Snipped > 0)) and not self.RecvStarted then
+        self.RecvStarted = true
+        self.DownloadStatus = 'Downloading Script (0%)'
+    end
+
+    self.File = self.File .. (self.Receive or self.Snipped)
+    if self.File:find('</si'..'ze>') then
+        if not self.Size then
+            self.Size = tonumber(self.File:sub(self.File:find('<si'..'ze>')+6,self.File:find('</si'..'ze>')-1))
+        end
+        if self.File:find('<scr'..'ipt>') then
+            local _,ScriptFind = self.File:find('<scr'..'ipt>')
+            local ScriptEnd = self.File:find('</scr'..'ipt>')
+            if ScriptEnd then ScriptEnd = ScriptEnd - 1 end
+            local DownloadedSize = self.File:sub(ScriptFind+1,ScriptEnd or -1):len()
+            self.DownloadStatus = 'Downloading Script ('..math.round(100/self.Size*DownloadedSize,2)..'%)'
+        end
+    end
+    if self.File:find('</scr'..'ipt>') then
+        self.DownloadStatus = 'Downloading Script (100%)'
+        local a,b = self.File:find('\r\n\r\n')
+        self.File = self.File:sub(a,-1)
+        self.NewFile = ''
+        for line,content in ipairs(self.File:split('\n')) do
+            if content:len() > 5 then
+                self.NewFile = self.NewFile .. content
+            end
+        end
+        local HeaderEnd, ContentStart = self.NewFile:find('<sc'..'ript>')
+        local ContentEnd, _ = self.NewFile:find('</scr'..'ipt>')
+        if not ContentStart or not ContentEnd then
+            if self.CallbackError and type(self.CallbackError) == 'function' then
+                self.CallbackError()
+            end
+        else
+            local newf = self.NewFile:sub(ContentStart+1,ContentEnd-1)
+            local newf = newf:gsub('\r','')
+            if newf:len() ~= self.Size then
+                if self.CallbackError and type(self.CallbackError) == 'function' then
+                    self.CallbackError()
+                end
+                return
+            end
+            local newf = Base64Decode(newf)
+            if type(load(newf)) ~= 'function' then
+                if self.CallbackError and type(self.CallbackError) == 'function' then
+                    self.CallbackError()
+                end
+            else
+                local f = io.open(self.SavePath,"w+b")
+                f:write(newf)
+                f:close()
+                if self.CallbackUpdate and type(self.CallbackUpdate) == 'function' then
+                    self.CallbackUpdate(self.OnlineVersion,self.LocalVersion)
+                end
+            end
+        end
+        self.GotSxScriptUpdate = true
+    end
 end
