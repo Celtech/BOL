@@ -127,11 +127,11 @@ function Ezreal:OnDraw()
             end
         end
 
-        for i, snipeTarget in pairs(GetEnemyHeroes()) do
-            if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
-                DrawText("You can kill " .. snipeTarget.charName .. "With Ult, Hold T to Ult",50,50,50,ARGB(255,255,0,0))
-            end
-        end
+        --for i, snipeTarget in pairs(GetEnemyHeroes()) do
+            --if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
+                --DrawText("You can kill " .. snipeTarget.charName .. "With Ult, Hold T to Ult",50,50,50,ARGB(255,255,0,0))
+            --end
+        --end
     end
 end
 function Ezreal:Combo()
