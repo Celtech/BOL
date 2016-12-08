@@ -44,7 +44,8 @@ function OnLoad()
             Menu.Spell.RMenu:addSubMenu("Mixed Menu", "MixedMenu")
             Menu.Spell.RMenu:addSubMenu("Last Hit Menu", "LastHitMenu")
             Menu.Spell.RMenu:addSubMenu("Clear Menu", "ClearMenu")
-            Menu.Spell.RMenu:addParam("RangeCheck", "Ult Range Check", SCRIPT_PARAM_SLICE, 1500, 0, 9000, 0)
+            Menu.Spell.RMenu:addParam("RangeCheck", "Ult range check", SCRIPT_PARAM_SLICE, 1500, 0, 9000, 0)
+            Menu.Spell.RMenu:addParam("BaseUlt", "Enable base ult", 1, true)
     Menu:addSubMenu("Hotkeys Menu", "Hotkeys")
         Menu.Hotkeys:addParam("ForceUlt", "Force Ult", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
     Menu:addSubMenu("Items Menu", "Items")
@@ -56,28 +57,27 @@ function OnLoad()
             Menu.General.Level:addParam("Enable", "Enable Auto Leveler", 1, true)
             Menu.General.Level:addParam("Ignore", "Ignore First 3 Levels", 1, true)
             Menu.General.Level:addParam("Sequence", "Leveling Sequence", SCRIPT_PARAM_LIST, 1,{'Q>E>W', 'Q>W>E', 'W>Q>E', 'W>E>Q'})
-        if (VIP_USER) then
-            Menu.General:addSubMenu("Auto Buy", "Buy")
-                Menu.General.Buy:addParam("StartingItems", "Purchase Starting Items", 1, true)
-		        Menu.General.Buy:addParam("TrinketSwitch", "Auto Switch to Blue Trinket", 1, true)
-        end
+        Menu.General:addSubMenu("Auto Buy", "Buy")
+            Menu.General.Buy:addParam("StartingItems", "Purchase Starting Items", 1, true)
+		    Menu.General.Buy:addParam("TrinketSwitch", "Auto Switch to Blue Trinket", 1, true)
+        Menu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
         Menu.General:addParam("Focus", "Left Click To Focus", SCRIPT_PARAM_LIST, 2, {"Never","For 1 Minute", "Until Removed"})
 
     Menu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
-    if (VIP_USER) then
-        Menu:addParam("Packets", "Enable Packet Features", 1, true)
-        Menu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Mastery","Joke","Taunt","Dance","Laugh"})
-        Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulse Fire", "TPA", "Debonair", "Ace of Spades", "Arcade"})
-    else Menu:addParam("Packets", "Packets have been disabled, you're not VIP!", SCRIPT_PARAM_INFO, "") end
+    Menu:addParam("Packets", "Enable Packet Features", 1, true)
+    Menu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Mastery","Joke","Taunt","Dance","Laugh"})
+    Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulse Fire", "TPA", "Debonair", "Ace of Spades", "Arcade"})
 
     CheckUpdates()
     Libraries()
-    Vip()
 
     DelayAction(function()
-        Ezreal()
-        Warding()
-        Core:Log("Loaded v.01")
+        if UPDATED and WALKERLOADED and PREDICTIONLOADED then
+            Vip()
+            Ezreal()
+            Warding()
+            Core:Log("Loaded v.01")
+        end
     end, 11)
 end
 
@@ -94,11 +94,9 @@ function Ezreal:__init()
         R = {Range = 9999, Speed = 2000, Collision = false}
     }
 
-    if WALKERLOADED and PREDICTIONLOADED and UPDATED then
-        AddTickCallback(function() self:Init() end)
-        AddDrawCallback(function() self:OnDraw() end)
-        AddTickCallback(function() self:Combo() end)
-    end
+    AddTickCallback(function() self:Init() end)
+    AddDrawCallback(function() self:OnDraw() end)
+    AddTickCallback(function() self:Combo() end)
 end
 function Ezreal:Init()
     self.QState = myHero:CanUseSpell(_Q)
@@ -686,7 +684,6 @@ function BaseUlt:__init()
         D3DXVECTOR3(396,182.132,462),
         D3DXVECTOR3(14340.418,171.9777,14391.075)
     }
-
     AddRecvPacketCallback2(function(p) self:RecvPacket(p) end)
     AddDrawCallback(function() self:OnDraw() end)
     AddTickCallback(function() self:DoUlt() end)
@@ -715,7 +712,9 @@ function BaseUlt:RecvPacket(p)
 				str = 'teleport'
 			end
 			if self.recallTimes[str:lower()] then
-                print(o.charName .. " is recalling")
+                if Menu.General.Verbose then
+                    Core:Log(o.charName .. " is recalling")
+                end
 				self.ActiveRecalls[o.networkID] = {
 					name = o.charName,
 					startT = os.clock(),
@@ -728,7 +727,9 @@ function BaseUlt:RecvPacket(p)
 				}
 				return
 			elseif self.ActiveRecalls[o.networkID] then
-                print(o.charName .. " cancled recall")
+                if Menu.General.Verbose then
+                    Core:Log(o.charName .. " cancled recall")
+                end
 				self.ActiveRecalls[o.networkID] = nil
 
 			end
@@ -736,15 +737,21 @@ function BaseUlt:RecvPacket(p)
 	end
 end
 function BaseUlt:OnDraw()
-    for i, enemy in pairs(self.ActiveRecalls) do
-        self:ProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self.BaseSpots[2]) / 2000) + 1) / 7.9 * 100)
+    if not myHero.dead and Menu.Spell.RMenu.BaseUlt then
+        for i, enemy in pairs(self.ActiveRecalls) do
+            if BaseUlt:PredictIfUltCanKill(enemy) then
+                self:ProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self.BaseSpots[2]) / 2000) + 1) / 7.9 * 100)
+            end
+        end
     end
 end
 function BaseUlt:DoUlt()
-    self.time = GetDistance(myHero, self.BaseSpots[2]) / 2000
-    for i, snipeTarget in pairs(self.ActiveRecalls) do
-        if (snipeTarget.endT - os.clock()) <= self.time + 1 and Ezreal:UltDamage(snipeTarget.object) > snipeTarget.startHP + (snipeTarget.hpRegen * 7.9) then
-            CastSpell(_R, self:GetBaseCoords().x, self:GetBaseCoords().z)
+    if not myHero.dead and Menu.Spell.RMenu.BaseUlt then
+        self.time = GetDistance(myHero, self.BaseSpots[2]) / 2000
+        for i, snipeTarget in pairs(self.ActiveRecalls) do
+            if (snipeTarget.endT - os.clock()) <= self.time + 1 and BaseUlt:PredictIfUltCanKill(snipeTarget) then
+                CastSpell(_R, self:GetBaseCoords().x, self:GetBaseCoords().z)
+            end
         end
     end
 end
@@ -766,20 +773,18 @@ function BaseUlt:ProgressBar(x, y, percent, text, tick)
     end
     DrawText(text,20,y + 8,x + 5,ARGB(255,255,255,255))
 end
-function BaseUlt:GetHeroFromName(name)
-    for i, snipeTarget in pairs(GetEnemyHeroes()) do
-        if snipeTarget.charName == name then
-            return snipeTarget
-        end
+function BaseUlt:PredictIfUltCanKill(target)
+    if Ezreal:UltDamage(target.object) > target.startHP + (target.hpRegen * 7.9) and myHero:CanUseSpell(_R) == READY then
+        return true
+    else
+        return false
     end
-
-    return nil
 end
 
 class "SxScriptUpdate"
 function CheckUpdates()
 	local ToUpdate = {}
-    ToUpdate.Version = .01
+    ToUpdate.Version = .02
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
     ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
