@@ -1,4 +1,34 @@
+--[[
+    TODO:
+        Better combo logic
+        Rewrite orbwalker fetch method
+        Auto Heal
+        Heal to save ally
+        Defensive item usage
+        Fix Left click focus
+        CC Cleanse
+        Base ult timer fix
+        Fix last hit / Mixed mode Q
+        Huamizer shit
+        Hit chance fix :)
+        Custom target selector?
+        Custom minion target selector?
+        E Logic
+        Anti Base Ult
+        Base ult objects hit check
+        Auto thresh lantern grabber
+        Add Ezreal E to anti fail flash Logic
+        Blitz crank pull break with E
+        QSS Blitz pull
+        mana managment
+        Make updater look sexy
+        Make sure all menu items work...
+        Damage drawings
+        Multi language menu
+]]
+
 function OnLoad()
+    if myHero.charName ~= "Ezreal" or not (VIP_USER) then return end
     Menu = scriptConfig("EzREAL As It Gets", "ezrealasitgets")
     Menu:addSubMenu("Drawing Menu", "Draw")
         Menu.Draw:addSubMenu("AA Settings", "AASettings")
@@ -17,9 +47,10 @@ function OnLoad()
             Menu.Draw.ESettings:addParam("EnabledMax", "Draw Attack Range", 1, false)
             Menu.Draw.ESettings:addParam("Hide", "Don't Draw When Not Castable", 1, true)
             Menu.Draw.ESettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,255})
+        Menu.Draw:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         Menu.Draw:addParam("StreamMode", "Enable Streaming Mode(F7)", SCRIPT_PARAM_ONKEYTOGGLE, false, 118)
         Menu.Draw:addParam("DrawTarget", "Draw Target", 1, true)
-    Menu:addSubMenu("Spells Menu", "Spell")
+    Menu:addSubMenu("Spells Menu & Masteries", "Spell")
         Menu.Spell:addSubMenu("Q Menu", "QMenu")
             Menu.Spell.QMenu:addSubMenu("Combo Menu", "ComboMenu")
                 Menu.Spell.QMenu.ComboMenu:addParam("Enable", "Use in combo", 1, true)
@@ -29,29 +60,55 @@ function OnLoad()
                 Menu.Spell.QMenu.LastHitMenu:addParam("Enable", "Use in last hit", 1, true)
             Menu.Spell.QMenu:addSubMenu("Clear Menu", "ClearMenu")
                 Menu.Spell.QMenu.ClearMenu:addParam("Enable", "Use in clear", 1, true)
+            Menu.Spell.QMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
         Menu.Spell:addSubMenu("W Menu", "WMenu")
             Menu.Spell.WMenu:addSubMenu("Combo Menu", "ComboMenu")
             Menu.Spell.WMenu:addSubMenu("Mixed Menu", "MixedMenu")
             Menu.Spell.WMenu:addSubMenu("Last Hit Menu", "LastHitMenu")
             Menu.Spell.WMenu:addSubMenu("Clear Menu", "ClearMenu")
+            Menu.Spell.WMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
         Menu.Spell:addSubMenu("E Menu", "EMenu")
             Menu.Spell.EMenu:addSubMenu("Combo Menu", "ComboMenu")
             Menu.Spell.EMenu:addSubMenu("Mixed Menu", "MixedMenu")
             Menu.Spell.EMenu:addSubMenu("Last Hit Menu", "LastHitMenu")
             Menu.Spell.EMenu:addSubMenu("Clear Menu", "ClearMenu")
+            Menu.Spell.EMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
         Menu.Spell:addSubMenu("R Menu", "RMenu")
             Menu.Spell.RMenu:addSubMenu("Combo Menu", "ComboMenu")
             Menu.Spell.RMenu:addSubMenu("Mixed Menu", "MixedMenu")
             Menu.Spell.RMenu:addSubMenu("Last Hit Menu", "LastHitMenu")
             Menu.Spell.RMenu:addSubMenu("Clear Menu", "ClearMenu")
-            Menu.Spell.RMenu:addParam("RangeCheck", "Ult range check", SCRIPT_PARAM_SLICE, 1500, 0, 9000, 0)
             Menu.Spell.RMenu:addParam("BaseUlt", "Enable base ult", 1, true)
+            Menu.Spell.RMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
+            Menu.Spell.RMenu:addParam("RangeCheck", "Ult range check", SCRIPT_PARAM_SLICE, 1500, 0, 9000, 0)
+        Menu.Spell:addSubMenu("Summoner Spells Menu", "SummonerSpellsMenu")
+        Menu.Spell:addSubMenu("Masteries Menu", "MasteriesMenu")
+            Menu.Spell.MasteriesMenu:addParam("FerocityMasteries", "Ferocity Masteries", SCRIPT_PARAM_LIST, 1,{"None","Bounty Hunter","Double Edged Sword","Battle Trance"})
+            Menu.Spell.MasteriesMenu:addParam("Merciless", "Merciless", 1, false)
+            Menu.Spell.MasteriesMenu:addParam("Savagry", "Savagry", SCRIPT_PARAM_SLICE, 0, 0, 5, 0)
     Menu:addSubMenu("Hotkeys Menu", "Hotkeys")
         Menu.Hotkeys:addParam("ForceUlt", "Force Ult", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
     Menu:addSubMenu("Items Menu", "Items")
+        Menu.Items:addSubMenu("Offensive Items", "OffensiveItems")
+            Menu.Items.OffensiveItems:addParam("Enable", "Use items during", SCRIPT_PARAM_LIST, 3,{"Never","Combo","Combo+Harass"})
+			Menu.Items.OffensiveItems:addParam("HealthPercent", "If my health % is less than", SCRIPT_PARAM_SLICE, 85, 0, 100, decimalPlace)
+			Menu.Items.OffensiveItems:addParam("EnemyHealthPercent", "If target health % is less than", SCRIPT_PARAM_SLICE, 85, 0, 100, decimalPlace)
+        Menu.Items:addSubMenu("Defensive Items", "DefensiveItems")
+            Menu.Items.DefensiveItems:addParam("Enable", "Use items during", SCRIPT_PARAM_LIST, 3,{"Never","Combo","Combo+Harass"})
+            Menu.Items.DefensiveItems:addParam("HealthPercent", "If my health % is less than", SCRIPT_PARAM_SLICE, 50, 0, 100, decimalPlace)
+            Menu.Items.DefensiveItems:addParam("NegateCC", "Use to negate CC if cleanse is down", 1, true)
+        Menu.Items:addSubMenu("QSS/Cleanse Settings", "CleanseSettings")
+            Menu.Items.CleanseSettings:addParam("Enable", "Remove CC", SCRIPT_PARAM_LIST, 3,{"Never","Combo","Always"})
+            Menu.Items.CleanseSettings:addParam("Blitz", "Remove Rocket Grab", SCRIPT_PARAM_ONOFF, false)
+            Menu.Items.CleanseSettings:addParam("Exhaust", "Remove Exhaust", SCRIPT_PARAM_ONOFF, false)
+            Menu.Items.CleanseSettings:addParam("Delay", "Humanizer delay (ms)", SCRIPT_PARAM_SLICE, 0, 0, 500, 0)
         Menu.Items:addSubMenu("Auto Warding", "Warding")
             Menu.Items.Warding:addParam("Enable", "Auto ward on vision lost", SCRIPT_PARAM_LIST, 3,{"Never","Combo","Always"})
-            Menu.Items.Warding:addParam("Delay", "Ward Humanizer delay (ms)", SCRIPT_PARAM_SLICE, 250, 0, 1000, 0)
+            Menu.Items.Warding:addParam("Delay", "Humanizer delay (ms)", SCRIPT_PARAM_SLICE, 250, 0, 1000, 0)
+
+        Menu.Items:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    	Menu.Items:addParam("AutoPotion", "Auto Health Pot", SCRIPT_PARAM_LIST, 2,{"Never","Combo","Always"})
+    	Menu.Items:addParam("HealthPercent", "Pot If My Health % is <", SCRIPT_PARAM_SLICE, 50, 0, 100, decimalPlace)
     Menu:addSubMenu("General Menu", "General")
         Menu.General:addSubMenu("Auto Leveler", "Level")
             Menu.General.Level:addParam("Enable", "Enable Auto Leveler", 1, true)
@@ -60,6 +117,7 @@ function OnLoad()
         Menu.General:addSubMenu("Auto Buy", "Buy")
             Menu.General.Buy:addParam("StartingItems", "Purchase Starting Items", 1, true)
 		    Menu.General.Buy:addParam("TrinketSwitch", "Auto Switch to Blue Trinket", 1, true)
+        Menu.General:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         Menu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
         Menu.General:addParam("Focus", "Left Click To Focus", SCRIPT_PARAM_LIST, 2, {"Never","For 1 Minute", "Until Removed"})
 
@@ -69,10 +127,11 @@ function OnLoad()
     Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulse Fire", "TPA", "Debonair", "Ace of Spades", "Arcade"})
 
     CheckUpdates()
+    Prediction()
     Libraries()
-
+    ItemsAndSummoners()
     DelayAction(function()
-        if UPDATED and WALKERLOADED and PREDICTIONLOADED then
+        if UPDATED and WALKERLOADED then
             Vip()
             Ezreal()
             Warding()
@@ -83,20 +142,21 @@ end
 
 class "Ezreal"
 function Ezreal:__init()
-    self.QState = nil
-    self.WState = nil
-    self.EState = nil
+    self.QState, self.WState,  self.EState = nil, nil, nil
 
     self.SpellTable = {
-        Q = {Range = 1150, Speed = 2000, Collision = true},
-        W = {Range = 1000, Speed = 1550, Collision = false},
-        E = {Range = 475, MaxRange = 750},
-        R = {Range = 9999, Speed = 2000, Collision = false}
+        Q = {range = 1150, speed = 2000, delay = 0.6, radius = 75, collision = true},
+        W = {range = 1000, speed = 1550, delay = 0.6, radius = 100, collision = false},
+        E = {range = 475, MaxRange = 750},
+        R = {range = math.huge, speed = 2000, delay = 1, radius = 150, collision = false}
     }
+
+    self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.Q.range - 400, myHero, MINION_SORT_HEALTH_ASC)
 
     AddTickCallback(function() self:Init() end)
     AddDrawCallback(function() self:OnDraw() end)
     AddTickCallback(function() self:Combo() end)
+    AddTickCallback(function() self:Laneclear() end)
 end
 function Ezreal:Init()
     self.QState = myHero:CanUseSpell(_Q)
@@ -126,34 +186,34 @@ function Ezreal:OnDraw()
                 DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
             end
         end
-
-        --for i, snipeTarget in pairs(GetEnemyHeroes()) do
-            --if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
-                --DrawText("You can kill " .. snipeTarget.charName .. "With Ult, Hold T to Ult",50,50,50,ARGB(255,255,0,0))
-            --end
-        --end
+        --DrawText(tostring(),50,50,50,ARGB(255,255,0,0))
+        for i, snipeTarget in pairs(GetEnemyHeroes()) do
+            if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
+                DrawText("You can kill " .. snipeTarget.charName .. "With Ult, Hold T to Ult",50,50,50,ARGB(255,255,0,0))
+            end
+        end
     end
 end
 function Ezreal:Combo()
     if Libraries:ComboKey() and Target ~= nil then
         if self.WState == READY then
-            local CastPosition, HitChance, Position = currentPred:GetLineCastPosition(Target, 0.6, 75, self.SpellTable.W.Range, self.SpellTable.W.Speed, myHero, self.SpellTable.W.Collision)
-            if CastPosition and HitChance >= 2 and GetDistance(CastPosition) < self.SpellTable.W.Range then
+            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.W.delay, self.SpellTable.W.radius, self.SpellTable.W.range, self.SpellTable.W.speed, self.SpellTable.W.collision, self.SpellTable.W)
+            if CastPosition and HitChance >= Menu.Spell.WMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.W.range then
                 CastSpell(_W, CastPosition.x, CastPosition.z)
             end
         end
-
         if self.QState == READY then
-            local CastPosition, HitChance, Position = currentPred:GetLineCastPosition(Target, 0.6, 75, self.SpellTable.Q.Range, self.SpellTable.Q.Speed, myHero, self.SpellTable.Q.Collision)
-            if CastPosition and HitChance >= 2 and GetDistance(CastPosition) < self.SpellTable.Q.Range then
-                CastSpell(_Q, CastPosition.x, CastPosition.z)
+            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
+            if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.Q.range then
+                if Info.collision ~= nil and not Info.collision or Info.collision == nil then
+                    CastSpell(_Q, CastPosition.x, CastPosition.z)
+                end
             end
         end
-
         if self.RState == READY and self:UltDamage(Target) > Target.health then
-            local CastPosition, HitChance, Position = currentPred:GetLineCastPosition(Target, 1, 75, self.SpellTable.R.Range, self.SpellTable.R.Speed, myHero, self.SpellTable.R.Collision)
-            if CastPosition and HitChance >= 2 and GetDistance(CastPosition) < self.SpellTable.R.Range then
-                --CastSpell(_R, CastPosition.x, CastPosition.z)
+            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
+            if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.R.range then
+                CastSpell(_R, CastPosition.x, CastPosition.z)
             end
         end
     end
@@ -161,7 +221,7 @@ end
 function Ezreal:Mixed()
     if Libraries:HarassKey() and Target ~= nil then
         if self.QState == READY and Menu.Spell.QMenu.MixedMenu.Enable then
-            local CastPosition, HitChance, Position = currentPred:GetLineCastPosition(Target, 0.6, 75, self.SpellTable.Q.Range, self.SpellTable.Q.Speed, myHero, self.SpellTable.Q.Collision)
+            local CastPosition, HitChance, Position = vPred:GetLineCastPosition(Target, 0.6, 75, self.SpellTable.Q.Range, self.SpellTable.Q.Speed, myHero, self.SpellTable.Q.Collision)
             if CastPosition and HitChance >= 2 and GetDistance(CastPosition) < self.SpellTable.Q.Range then
                 CastSpell(_Q, CastPosition.x, CastPosition.z)
             end
@@ -173,10 +233,41 @@ function Ezreal:Mixed()
         --        CastSpell(_W, CastPosition.x, CastPosition.z)
         --    end
         --end
+        if not _G.AutoCarry.Orbwalker:CanShoot() then
+            DelayAction(function()
+            if self.QState == READY then
+                self.enemyMinions:update()
+                for index, minion in pairs(self.enemyMinions.objects) do
+                    if minion.health < 200 then
+                        local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(minion, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
+                        if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.Q.range then
+                            if Info.collision ~= nil and not Info.collision or Info.collision == nil then
+                                CastSpell(_Q, CastPosition.x, CastPosition.z)
+                            end
+                        end
+                    end
+                end
+            end
+        end,.25)
+        end
     end
 end
 function Ezreal:Laneclear()
-    --temp
+    if not _G.AutoCarry.Orbwalker:CanShoot() then
+        if self.QState == READY then
+            self.enemyMinions:update()
+            for index, minion in pairs(self.enemyMinions.objects) do
+                if minion.health < 200 then
+                    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(minion, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
+                    if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.Q.range then
+                        if Info.collision ~= nil and not Info.collision or Info.collision == nil then
+                            CastSpell(_Q, CastPosition.x, CastPosition.z)
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
 function Ezreal:UltDamage(unit)
     local sLvl = myHero:GetSpellData(_R).level
@@ -196,16 +287,356 @@ function Ezreal:KillSecure()
     end
 end
 
+class "ItemsAndSummoners"
+function ItemsAndSummoners:__init()
+    self.itemsAndSpells = {
+        ["Potions"] = {"RegenerationPotion","ItemCrystalFlask","ItemDarkCrystalFlask","ItemCrystalFlaskJungle"},
+        ["OffensiveItems"] = {
+            {"BilgewaterCutlass", 550, true},
+            {"ItemSwordOfFeastAndFamine", 550, true},
+            {"HextechGunblade", 700, true},
+            {"YoumusBlade", 600, false},
+            {"ItemVeilChannel",700, false},
+            {"ItemSoFBoltSpellBase", 550, true}
+        },
+        ["DefensiveItems"] = {"ZhonyasHourglass", "RanduinsOmen", "ArchAngelsDummySpell"},
+        ["CleanseItems"] = {"ItemMercurial", "QuicksilverSash"},
+        ["Cooldowns"] = {
+            ["LastPotion"] = 0
+        },
+        ["SummonerSpells"] = {
+            ["Ignite"] = self:GetSummonerSpellFromName("SummonerDot"),
+            ["Exaughst"] = self:GetSummonerSpellFromName("SummonerExhaust"),
+            ["Heal"] = self:GetSummonerSpellFromName("SummonerHeal"),
+            ["Ghost"] = self:GetSummonerSpellFromName("SummonerHaste"),
+            ["Cleanse"] = self:GetSummonerSpellFromName("SummonerBoost"),
+            ["Flash"] = self:GetSummonerSpellFromName("SummonerFlash"),
+            ["Barrier"] = self:GetSummonerSpellFromName("SummonerBarrier")
+        }
+    }
+    self.enemyHeroes = GetEnemyHeroes()
+    self.lastTAttack = 0
+    self.tDamage = 1
+    AddDrawCallback(function() self:OnDraw() end)
+    AddLoadCallback(function() self:PrepSummonerSpells() end)
+    AddTickCallback(function() self:UsePotion() end)
+    AddTickCallback(function() self:HealToChase() end)
+    AddTickCallback(function() self:AutoIgnite() end)
+    AddTickCallback(function() self:UseItems() end)
+    AddCastSpellCallback(function(iSpell, vStart, vEnd, target) self:FlashProtection(iSpell, vStart, vEnd, target) end)
+    AddProcessAttackCallback(function(unit, spell) self:ProtectFromTower(unit, spell) end)
+end
+function ItemsAndSummoners:PrepSummonerSpells()
+    if self.itemsAndSpells.SummonerSpells.Ignite then
+        Menu.Spell.SummonerSpellsMenu:addParam("SmartIgnite", "Use smart ignite", SCRIPT_PARAM_LIST, 2, {"Never", "Optimal", "Aggressive"})
+    end
+    if self.itemsAndSpells.SummonerSpells.Exaughst then
+        Menu.Spell.SummonerSpellsMenu:addParam("Exaughst", "Use exaughst", SCRIPT_PARAM_LIST, 4, {"Never", "High AP", "High AD", "Target"})
+    end
+    if self.itemsAndSpells.SummonerSpells.Heal then
+        Menu.Spell.SummonerSpellsMenu:addParam("Heal", "Use heal", 1, true)
+        Menu.Spell.SummonerSpellsMenu:addParam("HealAlly", "Use heal on ally", 1, true)
+        Menu.Spell.SummonerSpellsMenu:addParam("HealToChase", "Use heal to secure kill", 1, true)
+        Menu.Spell.SummonerSpellsMenu:addParam("HealthPercent", "If my health % is <", SCRIPT_PARAM_SLICE, 10, 0, 100, 0)
+    end
+    if self.itemsAndSpells.SummonerSpells.Ghost then
+        Menu.Spell.SummonerSpellsMenu:addParam("Ghost", "Use ghost to chase", SCRIPT_PARAM_LIST, 2, {"Never", "Optimal", "Aggressive"})
+    end
+    if self.itemsAndSpells.SummonerSpells.Flash then
+        Menu.Spell.SummonerSpellsMenu:addParam("Flash", "Block flash fails", 1, true)
+    end
+    if self.itemsAndSpells.SummonerSpells.Barrier then
+        Menu.Spell.SummonerSpellsMenu:addParam("Barrier", "Use barrier", 1, true)
+        Menu.Spell.SummonerSpellsMenu:addParam("HealthPercent", "If my health % is <", SCRIPT_PARAM_SLICE, 10, 0, 100, 0)
+    end
+    if self.itemsAndSpells.SummonerSpells.Cleanse then
+        Menu.Items.CleanseSettings:addParam("Cleanse", "Use Cleanse Summoner", SCRIPT_PARAM_ONOFF, true)
+    end
+end
+function ItemsAndSummoners:GetSlotItemFromName(itemname)
+	local slot
+	for i = 6, 12 do
+		local item = myHero:GetSpellData(i).name
+		if item and item:lower():find(itemname:lower()) and myHero:CanUseSpell(i) == READY then
+			slot = i
+		end
+	end
+	return slot
+end
+function ItemsAndSummoners:GetSummonerSpellFromName(name)
+	if myHero:GetSpellData(SUMMONER_1).name:lower():find(name:lower()) then
+		return SUMMONER_1
+	elseif myHero:GetSpellData(SUMMONER_2).name:lower():find(name:lower()) then
+		return SUMMONER_2
+	end
+end
+function ItemsAndSummoners:isFleeingFromMe(target, range)
+    fpos = Prediction:GetPredictedPosistion(target, 0.26)
+	if fpos and GetDistanceSqr(fpos) > range*range then
+		return true
+	end
+	return false
+end
+function ItemsAndSummoners:FlashProtection(iSpell, vStart, vEnd, target)
+    if self.itemsAndSpells.SummonerSpells.Flash and Menu.Spell.SummonerSpellsMenu.Flash then
+        if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Flash) == READY then
+            local correctedMouse1 = myHero + (Vector(mousePos) - myHero):normalized() * (GetDistance(myHero, mousePos) + 30)
+            local correctedMouse2 = myHero + (Vector(mousePos) - myHero):normalized() * 480
+            local correctedMouseD3d = D3DXVECTOR3(correctedMouse2.x,correctedMouse2.y,correctedMouse2.z)
+            local correctedMouseD3d2 = D3DXVECTOR3(correctedMouse1.x,correctedMouse1.y,correctedMouse1.z)
+            if GetDistance(myHero, mousePos) > 450 then
+                if IsWall(correctedMouseD3d) then
+                    if iSpell == self.itemsAndSpells.SummonerSpells.Flash then
+                		BlockSpell()
+                	end
+                end
+            else
+                if IsWall(correctedMouseD3d2) then
+                    if iSpell == self.itemsAndSpells.SummonerSpells.Flash then
+                		BlockSpell()
+                	end
+                end
+            end
+        end
+    end
+end
+function ItemsAndSummoners:OnDraw()
+	for i = 6, 12 do
+		local item = myHero:GetSpellData(i).name
+		if item then
+			DrawText(item,20,10,20* i,ARGB(255,255,0,0))
+		end
+	end
+
+
+    -- local correctedMouse = myHero + (Vector(mousePos) - myHero):normalized() * 450
+    -- local correctedMouseD3d = D3DXVECTOR3(correctedMouse2.x,correctedMouse2.y,correctedMouse2.z)
+    -- if GetDistance(myHero, mousePos) > 450 then
+    --     if IsWall(correctedMouseD3d) then
+    --         DrawLine3D(myHero.x, myHero.y, myHero.z, correctedMouse.x, correctedMouse.y, correctedMouse.z, 1, ARGB(255,255,0,0))
+    --     else
+    --         DrawLine3D(myHero.x, myHero.y, myHero.z, correctedMouse.x, correctedMouse.y, correctedMouse.z, 1, ARGB(255,0,255,0))
+    --     end
+    -- else
+    --     if IsWall(mousePos) then
+    --         DrawLine3D(myHero.x, myHero.y, myHero.z, mousePos.x, mousePos.y, mousePos.z, 1, ARGB(255,255,0,0))
+    --     else
+    --         DrawLine3D(myHero.x, myHero.y, myHero.z, mousePos.x, mousePos.y, mousePos.z, 1, ARGB(255,0,255,0))
+    --     end
+    -- end
+end
+function ItemsAndSummoners:UsePotion()
+    if not myHero.dead then
+        if Menu.Items.AutoPotion == 2 and Libraries:ComboKey() or Menu.Items.AutoPotion == 3 then
+        	if os.clock() - self.itemsAndSpells.Cooldowns.LastPotion < 8 then return end
+            if Menu.Items.HealthPercent >= (myHero.health / myHero.maxHealth * 100) then
+                for i = 1, 4 do
+                    if self:GetSlotItemFromName(self.itemsAndSpells.Potions[i]) ~= nil then
+                        CastSpell(self:GetSlotItemFromName(self.itemsAndSpells.Potions[i]))
+                		self.itemsAndSpells.Cooldowns.LastPotion= os.clock()
+                    end
+                end
+            end
+        end
+    end
+end
+function ItemsAndSummoners:AutoIgnite()
+    if self.itemsAndSpells.SummonerSpells.Ignite then
+    	local IgniteDmg = 50 + (20 * myHero.level)
+    	local aggro = Menu.Spell.SummonerSpellsMenu.SmartIgnite == 3 and 0.05 or 0
+    	for i, enemy in pairs(self.enemyHeroes) do
+    		if ValidTarget(enemy, 600) then
+    			local spellDamage = 0
+    			local adDamage = myHero:CalcDamage(enemy, myHero.totalDamage)
+    			spellDamage = spellDamage + adDamage
+    			if myHero.health < myHero.maxHealth*(0.35+aggro) and enemy.health < enemy.maxHealth*(0.34+aggro)  and GetDistanceSqr(enemy) < 420 * 420 then
+    				CastSpell(ignite, enemy)
+    			end
+    			local r = myHero.range+65
+    			local trange = r < 575 and r or 575
+    			if self:isFleeingFromMe(enemy, trange) then
+    				if enemy.health < IgniteDmg + spellDamage  + 10 then
+    					if myHero.ms < enemy.ms then
+    						CastSpell(ignite, enemy)
+    					end
+    				end
+    			end
+    			if (GetDistanceSqr(enemy) > 160000 and (myHero.health+myHero.shield) < myHero.maxHealth*0.3) then
+    				if enemy.health > spellDamage-(500*aggro) and enemy.health < IgniteDmg + spellDamage-(500*aggro)  then
+    					CastSpell(ignite, enemy)
+    				end
+    			end
+    		end
+    	end
+    end
+end
+function ItemsAndSummoners:ProtectFromTower(unit, spell)
+	if not unit or not unit.valid or not spell then return end
+	if spell.target and spell.target.type == myHero.type and spell.target.team == myHero.team and (spell.name:lower():find("_turret_chaos") or spell.name:lower():find("_turret_order")) and not (spell.name:lower():find("4") or spell.name:lower():find("3")) then
+		if GetDistance(unit) < 2000 then
+			if os.clock() - self.lastTAttack < 1.75 then
+				if self.tDamage < 1.75 then
+					self.tDamage = self.tDamage + 0.375
+				else
+					self.tDamage = self.tDamage + 0.250
+					self.tDamage = self.tDamage > 2.25 and 2.25 or self.tDamage
+				end
+			else
+				self.tDamage = 1
+			end
+			self.lastTAttack = os.clock()
+
+			if (myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == 0 or myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Barrier) == 0) and spell.target.isMe then
+				local realDamage = unit.totalDamage / (((myHero.armor * 0.7) / 100) + 1)
+
+				if Prediction:GetPredictedHealth(myHero, 0.5) + myHero.shield <= realDamage * self.tDamage then
+					DelayAction(function()
+                        if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Barrier) == 0 then
+						    CastSpell(self.itemsAndSpells.SummonerSpells.Barrier)
+                        elseif myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == 0 then
+						    CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
+                        end
+                        Core:Log("Saving you from tower")
+					end, 0.5)
+				end
+			end
+		end
+	end
+end
+function ItemsAndSummoners:CalcDist(enemy)
+	local ourMS, targetMS = ((myHero.ms*1.30)),Target.ms
+	local msDiff = ourMS - targetMS
+	local adDamage = myHero:CalcDamage(Target, myHero.totalDamage)
+
+	if (GetDistance(enemy) - msDiff) < (myHero.range + myHero.boundingRadius) and (GetDistance(enemy) - msDiff) > (myHero.range + myHero.boundingRadius) - 20 and adDamage > enemy.health and msDiff > 0 then
+		return true
+	else
+		return false
+	end
+end
+function ItemsAndSummoners:HealToChase()
+	if self.itemsAndSpells.SummonerSpells.Heal and Menu.Spell.SummonerSpellsMenu.HealToChase then
+		if ValidTarget(Target) and Menu.spell.heal.chase then
+			local ourMS, targetMS = myHero.ms,Target.ms
+			local adDamage = myHero:CalcDamage(Target, myHero.totalDamage)
+
+			if Libraries:ComboKey() then
+				local r = myHero.range+65
+				local trange = r < 575 and r or 575
+				if self:isFleeingFromMe(Target, trange) and self:CalcDist(Target) then
+					if not EREADY then
+						CastSpell(heal)
+					else
+						CastSpell(_E, Target.x, Target.z)
+					end
+				elseif EREADY and adDamage*2 > Target.health and GetDistance(Target) < (myHero.range + myHero.boundingRadius) + 475 then
+					CastSpell(_E, Target.x, Target.z)
+				end
+			end
+		end
+	end
+end
+function ItemsAndSummoners:UseItems()
+	if not ValidTarget(Target) and Target ~= myHero then return end
+	for i=1,5 do
+        self.itemSlot = self:GetSlotItemFromName(self.itemsAndSpells.OffensiveItems[i][1])
+        if self.itemSlot ~= nil then
+            if GetDistance(myHero, Target) <= self.itemsAndSpells.OffensiveItems[i][2] then
+                if self.itemsAndSpells.OffensiveItems[i][3] == true then
+                    CastItem(self.itemSlot, Target)
+                else
+                    CastItem(self.itemSlot)
+                end
+            end
+        end
+	end
+end
+--[[class "AutoIt"
+function AutoIt:__init()
+
+	self.lastRemove = 0
+	AddProcessSpellCallback(function(unit, spell) self:OnProcessSpell(unit, spell) end)
+	AddApplyBuffCallback(function(source, unit, buff) self:OnApplyBuff(source, unit, buff) end)
+end
+function AutoIt:AutoHeal()
+	if heal then
+		if ValidTarget(self:GetCustomTarget(), 750) then
+			if Menu.spell.heal.enable and myHero:CanUseSpell(heal) == 0 then
+				if myHero.level > 5 and myHero.health/myHero.maxHealth < Menu.spell.heal.health/100 then
+					CastSpell(heal)
+				elseif  myHero.level < 6 and myHero.health/myHero.maxHealth < (Menu.spell.heal.health/100)*.75 then
+					CastSpell(heal)
+				end
+
+				if realheals and Menu.spell.heal.ally then
+					local ally = self:findClosestAlly(myHero)
+					if ally and not ally.dead and GetDistance(ally) < 850 then
+						if  ally.health/ally.maxHealth < Menu.spell.heal.health/100 then
+							CastSpell(heal)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+function AutoIt:UseItemsCC(unit, scary)
+	if self.lastRemove > os.clock() - 1 then return end
+	for i, Item in pairs(Items) do
+		local Item = Items[i]
+		if GetInventoryItemIsCastable(Item.id) and GetDistanceSqr(unit) <= Item.range * Item.range then
+			if Item.id == 3139 or Item.id ==  3140 then
+				if scary then
+					DelayAction(function()
+						CastItem(Item.id)
+					end, Menu.item.qss.delay/1000)
+					self.lastRemove = os.clock()
+					return true
+				end
+			end
+		end
+	end
+	if Menu.item.qss.Summoner and SummonerSlot and myHero:CanUseSpell(SummonerSlot) == 0 then
+		DelayAction(function()
+			CastSpell(SummonerSlot)
+		end, Menu.item.qss.delay/1000)
+		self.lastRemove = os.clock()
+	end
+end
+function AutoIt:OnProcessSpell(unit, spell)
+	if Menu.item.qss.zed or Menu.item.qss.Always == 3 or Menu.item.qss.Always == 2 and Keys:ComboKey() then
+		if spell.name:lower():find("zedr") and spell.target == myHero then
+			DelayAction(function()
+				self:UseItemsCC(myHero, true)
+			end, 1.5)
+		end
+	end
+end
+function AutoIt:OnApplyBuff(source, unit, buff)
+	if not buff or not source or not source.valid or not unit or not unit.valid then return end
+
+	if unit.isMe and (Menu.item.qss.Always == 3) or unit.isMe and (Menu.item.qss.Always == 2) and Keys:ComboKey() then
+		if (source.charName == "Rammus" and buff.type ~= 8) or source.charName == "Alistar" or source.charName:lower():find("baron") or source.charName:lower():find("spiderboss") or source.charName == "LeeSin" or (source.charName == "Hecarim" and not buff.name:lower():find("fleeslow")) then return end
+		if buff.name and ((not cleanse and buff.type == 24) or buff.type == 5 or buff.type == 11 or buff.type == 22 or buff.type == 21 or buff.type == 8)
+		or (buff.type == 10 and buff.name and buff.name:lower():find("fleeslow"))
+		or (Menu.item.qss.Exhaust and buff.name and buff.name:lower():find("summonerexhaust")) then
+			if not source.charName:lower():find("blitzcrank") then
+				self:UseItemsCC(myHero, true)
+			end
+		end
+	end
+end
+]]
+
 class "Libraries"
 function Libraries:__init()
     self.enemyHeroes = GetEnemyHeroes()
     self.sendOnce = true
+    ORBWALKER = nil
 
     predictonTable = {}
 
     AddLoadCallback(function() self:OnOrbwalker() end)
-    AddLoadCallback(function() self:FindLibraries() end)
-    AddTickCallback(function() self:OnPrediction() end)
     AddTickCallback(function() self:Targeting() end)
     AddTickCallback(function() self:FocusTarget() end)
     AddDrawCallback(function() self:DrawFocus() end)
@@ -218,29 +649,34 @@ function Libraries:OnOrbwalker()
 		if _G.MMA_IsLoaded  ~= nil then
 			Core:Log("MMA Detected!")
 			Menu.Hotkeys:addParam("OrbWalker", "MMA, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-			MMA = true
+			ORBWALKER = "mma"
+			WALKERLOADED = true
+        elseif _G.SAC ~= nil then
+			Core:Log("SAC:P Detected")
+			Menu.Hotkeys:addParam("OrbWalker", "SAC:P, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
+			ORBWALKER = "sacp"
 			WALKERLOADED = true
 		elseif _G.AutoCarry ~= nil then
 			Core:Log("SAC:R Detected")
 			Menu.Hotkeys:addParam("OrbWalker", "SAC:R, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-			SAC = true
+			ORBWALKER = "sacr"
 			WALKERLOADED = true
 		elseif _G._Pewalk ~= nil then
 			Core:Log("Pewalk Detected")
 			Menu.Hotkeys:addParam("OrbWalker", "PEWalk, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-			PEW = true
+			ORBWALKER = "pew"
 			WALKERLOADED = true
 		elseif FileExist(LIB_PATH.."Nebelwolfi's Orb Walker.lua") then
 			Core:Log("Moon Walker Detected")
 			require("Nebelwolfi's Orb Walker")
 			NebelwolfisOrbWalkerClass(Menu.Hotkeys)
-			NOW = true
+			ORBWALKER = "now"
 			WALKERLOADED = true
 		elseif FileExist(LIB_PATH.."SxOrbwalk.lua") then
 			Core:Log("No external orbwalker found! Activating SxOrbWalker!")
 			require("SxOrbWalk")
 			SxOrb:LoadToMenu(Menu.Hotkeys)
-			SX = true
+			ORBWALKER = "sx"
 			WALKERLOADED = true
 		else
 			WALKERLOADED = false
@@ -252,99 +688,53 @@ function Libraries:OnOrbwalker()
 		end
     end, 10)
 end
-function Libraries:FindLibraries()
-	if FileExist(LIB_PATH .. "VPrediction.lua") then
-		table.insert(predictonTable, "VPrediction")
-		loadedVP = false
-		PREDICTIONLOADED = true
-	end
-
-	if FileExist(LIB_PATH .. "SPrediction.lua") then
-		table.insert(predictonTable, "SPrediction")
-		loadedSP = false
-		PREDICTIONLOADED = true
-	end
-
-	if FileExist(LIB_PATH .. "HPrediction.lua") then
-		table.insert(predictonTable, "HPrediction")
-		loadedHP = false
-		PREDICTIONLOADED = true
-	end
-
-	--if FileExist(LIB_PATH .. "FHPrediction.lua") then
-	--	table.insert(predictonTable, "FHPrediction")
-	--	loadedFH = false
-	--	PREDICTIONLOADED = true
-	--end
-
-	if next(predictonTable) == nil then
-		PREDICTIONLOADED = false
-		local pred_URL = "https://raw.githubusercontent.com/SidaBoL/Scripts/master/Common/VPrediction.lua"
-		local pred_PATH = LIB_PATH.."VPrediction.lua"
-		Core:Log("You don't seem to have any prediction libraries installed! We'll download VPrediction for you! Dont press 2xF9! Please wait!")
-		DownloadFile(pred_URL, pred_PATH, function() Core:Log("VPrediction downloaded, please reload (2xF9)") end)
-		return
-	end
-    Menu.General:addParam("Prediction", "Prediction", SCRIPT_PARAM_LIST, 1, predictonTable)
-end
-function Libraries:OnPrediction()
-	if predictonTable[Menu.General.Prediction] == "VPrediction" and not loadedVP then
-		require "VPrediction"
-		loadedVP, currentPred = true, VPrediction()
-	elseif predictonTable[Menu.General.Prediction] == "SPrediction" and not loadedSP then
-		require "SPrediction"
-		loadedSP, currentPred = true, SPrediction()
-	elseif predictonTable[Menu.General.Prediction] == "HPrediction" and not loadedHP then
-		require "HPrediction"
-		loadedHP, currentPred = true, HPrediction()
-	elseif predictonTable[Menu.General.Prediction] == "FHPrediction" and not loadedFH then
-		require "FHPrediction"
-		loadedFH, currentPred = true, FHPrediction()
-	end
-end
 function Libraries:ComboKey()
 	--if not Menu.hotkeys.checkhk then
-		if SX then
+		if ORBWALKER == "sx" then
 			return SxOrb.isFight
-		elseif SAC then
+		elseif ORBWALKER == "sacp" then
 			return _G.AutoCarry.Keys.AutoCarry
-		elseif PEW then
+        elseif ORBWALKER == "sacr" then
+			return _G.AutoCarry.Keys.AutoCarry
+		elseif ORBWALKER == "pew" then
 			return _G._Pewalk.GetActiveMode().Carry
-		elseif NOW then
+		elseif ORBWALKER == "now" then
 			return _G.NebelwolfisOrbWalker.Config.k.Combo
-		elseif MMA then
+		elseif ORBWALKER == "mma" then
 			return _G.MMA_IsOrbwalking()
 		end
 	--end
 end
 function Libraries:HarassKey()
-	--if not Menu.hotkeys.checkhk then
-        if SX then
-            return SxOrb.isHarass
-        elseif SAC then
-            return _G.AutoCarry.Keys.MixedMode
-        elseif PEW then
-            return _G._Pewalk.GetActiveMode().Mixed
-        elseif NOW then
-            return _G.NebelwolfisOrbWalker.Config.k.Harass
-        elseif MMA then
-            return _G.MMA_IsDualCarrying()
-        end
-	--end
+    if ORBWALKER == "sx" then
+		return SxOrb.isHarass
+	elseif ORBWALKER == "sacp" then
+		return _G.AutoCarry.Keys.MixedMode
+    elseif ORBWALKER == "sacr" then
+		return _G.AutoCarry.Keys.MixedMode
+	elseif ORBWALKER == "pew" then
+		return _G._Pewalk.GetActiveMode().Mixed
+	elseif ORBWALKER == "now" then
+		return _G.NebelwolfisOrbWalker.Config.k.Harass
+	elseif ORBWALKER == "mma" then
+		return _G.MMA_IsDualCarrying()
+	end
 end
 function Libraries:Targeting()
     if SelectedTarget ~= nil and GetDistance(SelectedTarget) < 1500 and not SelectedTarget.dead then
 		Target = SelectedTarget
 	else
-		if SAC then
-			Target = _G.AutoCarry.SkillsCrosshair.target
-		elseif NOW then
+		if ORBWALKER == "sacp" then
+            Target = _G.SAC:GetTarget()
+        elseif ORBWALKER == "sacr" then
+            Target = _G.AutoCarry.SkillsCrosshair.target
+		elseif ORBWALKER == "now" then
 			Target = _G.NebelwolfisOrbWalker:GetTarget()
-		elseif PEW then
+		elseif ORBWALKER == "pew" then
 			Target = _G._Pewalk.GetTarget()
-		elseif SX then
+		elseif ORBWALKER == "sx" then
 			Target = _G.SxOrb:EnableAttacks()
-		elseif MMA then
+		elseif ORBWALKER == "mma" then
 			Target = _G.MMA_Target()
 		end
 	end
@@ -522,32 +912,34 @@ function Vip:__init()
     self.lastSkin = 0
     self.firstBuy = true
     self.qOff, self.wOff, self.eOff, self.rOff = 0,0,0,0
+    self.gameVersion = GetGameVersion():sub(1,10)
     self.packets = {
-        ["Items"] = {
-            ["Header"] = 0x0040,
-            ["VTable"] = 0xF877A0,
-            ["Packets"] = {0x8D, 0x12},
-            ["ID"] = {
-                ["Health Potion"] = {0x00C6,0x000A},
-        		["Warding Totem (Trinket)"] = {0x000F,0x001F},
-        		["Doran's Blade"] = {0x0000,0x0016},
-        		["Blue Trinket"] = {0x0004,0x001F}
+        ["6.24.169.4"] = {
+            ["Items"] = {
+                ["Header"] = 0x0040,
+                ["VTable"] = 0xF87750,
+                ["Packets"] = {0x8D, 0x12},
+                ["ID"] = {
+                    ["Health Potion"] = {0x00C6,0x000A},
+            		["Warding Totem (Trinket)"] = {0x000F,0x001F},
+            		["Doran's Blade"] = {0x0000,0x0016},
+            		["Blue Trinket"] = {0x0004,0x001F}
+                }
+            },
+            ["Emotes"] = {
+                ["Header"] = 0x007C,
+                ["VTable"] = 0x103DB18,
+                ["ID"] = {0x11,0x31,0x21,0x01}
+            },
+            ["Mastery"] = {
+                ["Header"] = 0x000A,
+                ["VTable"] = 0x1075A24,
+                ["Packets"] = {0x5D},
             }
-        },
-        ["Emotes"] = {
-            ["Header"] = 0x007C,
-            ["VTable"] = 0x103DB08,
-            ["Packets"] = {0x5D},
-            ["ID"] = {0x11,0x31,0x21,0x01}
-        },
-        ["Mastery"] = {
-            ["Header"] = 0x000A,
-            ["VTable"] = 0x1075A14,
-            ["Packets"] = {0x5D},
         }
     }
 
-	if (VIP_USER) and Menu.Packets then
+	if Menu.Packets and self.packets[self.gameVersion] ~= nil then
         BaseUlt()
         AddTickCallback(function() self:AutoBuy() end)
         AddTickCallback(function() self:TauntOnKill() end)
@@ -567,17 +959,17 @@ function Vip:TauntOnKill()
 	end
 end
 function Vip:SendEmote(id)
-	local p = CLoLPacket(self.packets.Emotes.Header)
-	p.vTable = self.packets.Emotes.VTable
+	local p = CLoLPacket(self.packets[self.gameVersion].Emotes.Header)
+	p.vTable = self.packets[self.gameVersion].Emotes.VTable
     p:EncodeF(myHero.networkID)
-	p:Encode1(self.packets.Emotes.ID[id])
+	p:Encode1(self.packets[self.gameVersion].Emotes.ID[id])
 	SendPacket(p)
 end
 function Vip:SendMastery()
-	local p = CLoLPacket(self.packets.Mastery.Header)
-	p.vTable = self.packets.Mastery.VTable
+	local p = CLoLPacket(self.packets[self.gameVersion].Mastery.Header)
+	p.vTable = self.packets[self.gameVersion].Mastery.VTable
 	p:EncodeF(myHero.networkID)
-	for i = 1, 4 do p:Encode1(self.packets.Mastery.Packets[1]) end
+	for i = 1, 4 do p:Encode1(self.packets[self.gameVersion].Mastery.Packets[1]) end
 	SendPacket(p)
 end
 function Vip:SkinChanger()
@@ -587,13 +979,13 @@ function Vip:SkinChanger()
     end
 end
 function Vip:BuyItem(Item)
-   local p = CLoLPacket(self.packets.Items.Header)
-   p.vTable = self.packets.Items.VTable
+   local p = CLoLPacket(self.packets[self.gameVersion].Items.Header)
+   p.vTable = self.packets[self.gameVersion].Items.VTable
    p:EncodeF(myHero.networkID)
-   p:Encode1(self.packets.Items.Packets[1])
-   p:Encode1(self.packets.Items.ID[Item][1])
-   p:Encode1(self.packets.Items.ID[Item][2])
-   for i = 1, 2 do p:Encode1(self.packets.Items.Packets[2]) end
+   p:Encode1(self.packets[self.gameVersion].Items.Packets[1])
+   p:Encode1(self.packets[self.gameVersion].Items.ID[Item][1])
+   p:Encode1(self.packets[self.gameVersion].Items.ID[Item][2])
+   for i = 1, 2 do p:Encode1(self.packets[self.gameVersion].Items.Packets[2]) end
    SendPacket(p)
 end
 function Vip:AutoBuy()
@@ -781,10 +1173,72 @@ function BaseUlt:PredictIfUltCanKill(target)
     end
 end
 
+class "Prediction"
+function Prediction:__init()
+    _G.predictonTable = {
+        ["Predictions"] = {"VPrediction", "FHPrediction"},
+        ["FoundPredictions"] = {},
+        ["LoadedPredictions"] = {},
+        ["ActivePrediction"] = nil,
+    }
+
+	for i=1, #_G.predictonTable.Predictions do
+        if FileExist(LIB_PATH .. _G.predictonTable.Predictions[i] .. ".lua") then
+            table.insert(_G.predictonTable.FoundPredictions, _G.predictonTable.Predictions[i])
+    	end
+    end
+
+    Menu.General:addParam("Prediction", "Prediction", SCRIPT_PARAM_LIST, 1, _G.predictonTable.FoundPredictions)
+    AddTickCallback(function() self:ActivePrediction() end)
+end
+function Prediction:ActivePrediction()
+    _G.predictonTable.ActivePrediction = _G.predictonTable.Predictions[Menu.General.Prediction]
+    for i=1, #_G.predictonTable.LoadedPredictions do
+        if _G.predictonTable.LoadedPredictions[i] == _G.predictonTable.ActivePrediction then
+            return
+        end
+    end
+
+    table.insert(_G.predictonTable.LoadedPredictions, _G.predictonTable.ActivePrediction)
+    require(_G.predictonTable.ActivePrediction)
+    if _G.predictonTable.ActivePrediction == "VPrediction" then
+        VPrediction = VPrediction()
+    elseif _G.predictonTable.ActivePrediction == "VPrediction" then
+        SPrediction = SPrediction()
+    end
+end
+function Prediction:GetLineCastPosition(hero, delay, width, range, speed, collision, spellSlot)
+    if _G.predictonTable.ActivePrediction ~= nil then
+        if _G.predictonTable.ActivePrediction == "VPrediction" then
+            return VPrediction:GetLineCastPosition(hero, delay, width, range, speed, myHero, collision)
+        elseif _G.predictonTable.ActivePrediction == "FHPrediction" then
+            return FHPrediction.GetPrediction(spellSlot, hero)
+        end
+    end
+end
+function Prediction:GetPredictedHealth(unit, time)
+    if _G.predictonTable.ActivePrediction ~= nil then
+        if _G.predictonTable.ActivePrediction == "VPrediction" then
+            return VPrediction:GetPredictedHealth(unit, time)
+        elseif _G.predictonTable.ActivePrediction == "FHPrediction" then
+            return FHPrediction.PredictHealth(unit, time)
+        end
+    end
+end
+function Prediction:GetPredictedPosistion(hero, delay)
+    if _G.predictonTable.ActivePrediction ~= nil then
+        if _G.predictonTable.ActivePrediction == "VPrediction" then
+            return VPrediction:GetPredictedPos(hero, delay)
+        elseif _G.predictonTable.ActivePrediction == "FHPrediction" then
+            return FHPrediction.PredictPosition(hero, delay)
+        end
+    end
+end
+
 class "SxScriptUpdate"
 function CheckUpdates()
 	local ToUpdate = {}
-    ToUpdate.Version = .02
+    ToUpdate.Version = .03
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
     ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
