@@ -517,7 +517,7 @@ function ItemsAndSummoners:CalcDist(enemy)
 end
 function ItemsAndSummoners:HealToChase()
 	if self.itemsAndSpells.SummonerSpells.Heal and Menu.Spell.SummonerSpellsMenu.HealToChase then
-		if ValidTarget(Target) and Menu.spell.heal.chase then
+		if ValidTarget(Target) and Menu.Spell.SummonerSpellsMenu.HealToChase then
 			local ourMS, targetMS = myHero.ms,Target.ms
 			local adDamage = myHero:CalcDamage(Target, myHero.totalDamage)
 
@@ -1224,7 +1224,7 @@ end
 class "SxScriptUpdate"
 function CheckUpdates()
 	local ToUpdate = {}
-    ToUpdate.Version = .03
+    ToUpdate.Version = .04
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
     ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
