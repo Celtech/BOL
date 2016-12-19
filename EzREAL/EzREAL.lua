@@ -99,7 +99,6 @@ function OnLoad()
         Menu.Items:addSubMenu("QSS/Cleanse Settings", "CleanseSettings")
             Menu.Items.CleanseSettings:addParam("Enable", "Remove CC", SCRIPT_PARAM_LIST, 3,{"Never","Combo","Always"})
             Menu.Items.CleanseSettings:addParam("Blitz", "Remove Rocket Grab", SCRIPT_PARAM_ONOFF, false)
-            Menu.Items.CleanseSettings:addParam("Exhaust", "Remove Exhaust", SCRIPT_PARAM_ONOFF, false)
             Menu.Items.CleanseSettings:addParam("Blind", "Remove Blind", SCRIPT_PARAM_ONOFF, false)
             Menu.Items.CleanseSettings:addParam("Delay", "Humanizer delay (ms)", SCRIPT_PARAM_SLICE, 0, 0, 500, 0)
         Menu.Items:addSubMenu("Auto Warding", "Warding")
@@ -357,14 +356,13 @@ function ItemsAndSummoners:PrepSummonerSpells()
     end
 end
 function ItemsAndSummoners:GetSlotItemFromName(itemname)
-	local slot
 	for i = 6, 12 do
 		local item = myHero:GetSpellData(i).name
 		if item and item:lower():find(itemname:lower()) and myHero:CanUseSpell(i) == READY then
-			slot = i
+			return i
 		end
 	end
-	return slot
+	return nil
 end
 function ItemsAndSummoners:GetSummonerSpellFromName(name)
 	if myHero:GetSpellData(SUMMONER_1).name:lower():find(name:lower()) then
@@ -546,7 +544,7 @@ function ItemsAndSummoners:UseItems()
         if self.itemSlot ~= nil then
             if GetDistance(myHero, Target) <= self.itemsAndSpells.OffensiveItems[i][2] then
                 if self.itemsAndSpells.OffensiveItems[i][3] == true then
-                    CastItem(self.itemSlot, Target)
+                    CastSpell(self.itemSlot, Target)
                 else
                     CastItem(self.itemSlot)
                 end
@@ -571,15 +569,15 @@ function ItemsAndSummoners:SpellProtection(unit, spell)
 end
 function ItemsAndSummoners:CleanseCC(source, unit, buff)
 	if not buff or not source or not source.valid or not unit or not unit.valid then return end
-	if unit.isMe and (Menu.Items.CleanseSettings.Enable == 2 or Menu.Items.CleanseSettings.Enable == 3 and Libraries:ComboKey()) then
-		if (source.charName == "Rammus" and buff.type ~= 8) or source.charName == "Alistar" or source.charName:lower():find("baron") or source.charName:lower():find("spiderboss") or source.charName == "LeeSin" or (source.charName == "Hecarim" and not buff.name:lower():find("fleeslow")) then return end
+	if unit.isMe and (Menu.Items.CleanseSettings.Enable == 3 or Menu.Items.CleanseSettings.Enable == 2 and Libraries:ComboKey()) then
+        if (source.charName == "Rammus" and buff.type ~= 8) or source.charName == "Alistar" or source.charName:lower():find("baron") or source.charName:lower():find("spiderboss") or source.charName == "LeeSin" or (source.charName == "Hecarim" and not buff.name:lower():find("fleeslow")) then return end
 		if buff.name and ((not cleanse and buff.type == 24) or buff.type == 5 or buff.type == 11 or buff.type == 22 or buff.type == 21 or buff.type == 8) or (buff.type == 25 and Menu.Items.CleanseSettings.Blind)
-		or (buff.type == 10 and buff.name and buff.name:lower():find("fleeslow"))-- then
-		or (Menu.Items.CleanseSettings.Exhaust and buff.name and buff.name:lower():find("summonerexhaust")) then
+		or (buff.type == 10 and buff.name and buff.name:lower():find("fleeslow")) then
+		--or (Menu.Items.CleanseSettings.Exhaust and buff.name and buff.name:lower():find("summonerexhaust")) then
 			if buff.name and buff.name:lower():find("caitlynyor") and CountEnemiesNearUnitReg(myHero, 700) == 0   then
 				return false
 			elseif not source.charName:lower():find("blitzcrank") then
-				self:UseItemsCC(myHero)
+				self:UseItemsCC()
 			end
 		end
 	end
@@ -593,14 +591,15 @@ function ItemsAndSummoners:CastZhonya()
 		end
 	end
 end
-function ItemsAndSummoners:UseItemsCC(unit)
+function ItemsAndSummoners:UseItemsCC()
     print("Cleansing!")
 	if os.clock() - self.lastRemove < 1 then return end
-    for i=1,5 do
-        self.itemSlot = self:GetSlotItemFromName(self.itemsAndSpells.CleanseItems[i])
-        if self.itemSlot ~= nil then
+    for i=1,2 do
+        self.cleanseSlot = self:GetSlotItemFromName(self.itemsAndSpells.CleanseItems[i])
+        print("Cleansing 2")
+        if self.cleanseSlot ~= nil then
             DelayAction(function()
-                CastItem(Item.id)
+                CastSpell(self.cleanseSlot,myHero)
             end, Menu.Items.CleanseSettings.Delay/1000)
             self.lastRemove = os.clock()
         end
