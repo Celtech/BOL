@@ -6,7 +6,6 @@
         Heal to save ally
         Defensive item usage
         Fix Left click focus
-        CC Cleanse
         Base ult timer fix
         Fix last hit / Mixed mode Q
         Huamizer shit
@@ -101,6 +100,7 @@ function OnLoad()
             Menu.Items.CleanseSettings:addParam("Enable", "Remove CC", SCRIPT_PARAM_LIST, 3,{"Never","Combo","Always"})
             Menu.Items.CleanseSettings:addParam("Blitz", "Remove Rocket Grab", SCRIPT_PARAM_ONOFF, false)
             Menu.Items.CleanseSettings:addParam("Exhaust", "Remove Exhaust", SCRIPT_PARAM_ONOFF, false)
+            Menu.Items.CleanseSettings:addParam("Blind", "Remove Blind", SCRIPT_PARAM_ONOFF, false)
             Menu.Items.CleanseSettings:addParam("Delay", "Humanizer delay (ms)", SCRIPT_PARAM_SLICE, 0, 0, 500, 0)
         Menu.Items:addSubMenu("Auto Warding", "Warding")
             Menu.Items.Warding:addParam("Enable", "Auto ward on vision lost", SCRIPT_PARAM_LIST, 3,{"Never","Combo","Always"})
@@ -184,6 +184,12 @@ function Ezreal:OnDraw()
         if Menu.Draw.DrawTarget then
             if Target ~= nil then
                 DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
+            end
+        end
+        --DrawText(tostring(),50,50,50,ARGB(255,255,0,0))
+        for i, snipeTarget in pairs(GetEnemyHeroes()) do
+            if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
+                DrawText("You can kill " .. snipeTarget.charName .. "With Ult, Hold T to Ult",50,50,50,ARGB(255,255,0,0))
             end
         end
     end
@@ -311,6 +317,7 @@ function ItemsAndSummoners:__init()
     self.enemyHeroes = GetEnemyHeroes()
     self.lastTAttack = 0
     self.tDamage = 1
+    self.lastRemove = 0
     AddDrawCallback(function() self:OnDraw() end)
     AddLoadCallback(function() self:PrepSummonerSpells() end)
     AddTickCallback(function() self:UsePotion() end)
@@ -319,6 +326,8 @@ function ItemsAndSummoners:__init()
     AddTickCallback(function() self:UseItems() end)
     AddCastSpellCallback(function(iSpell, vStart, vEnd, target) self:FlashProtection(iSpell, vStart, vEnd, target) end)
     AddProcessAttackCallback(function(unit, spell) self:ProtectFromTower(unit, spell) end)
+    AddProcessSpellCallback(function(unit, spell) self:SpellProtection(unit, spell) end)
+	AddApplyBuffCallback(function(source, unit, buff) self:CleanseCC(source, unit, buff) end)
 end
 function ItemsAndSummoners:PrepSummonerSpells()
     if self.itemsAndSpells.SummonerSpells.Ignite then
@@ -545,82 +554,66 @@ function ItemsAndSummoners:UseItems()
         end
 	end
 end
---[[class "AutoIt"
-function AutoIt:__init()
-
-	self.lastRemove = 0
-	AddProcessSpellCallback(function(unit, spell) self:OnProcessSpell(unit, spell) end)
-	AddApplyBuffCallback(function(source, unit, buff) self:OnApplyBuff(source, unit, buff) end)
-end
-function AutoIt:AutoHeal()
-	if heal then
-		if ValidTarget(self:GetCustomTarget(), 750) then
-			if Menu.spell.heal.enable and myHero:CanUseSpell(heal) == 0 then
-				if myHero.level > 5 and myHero.health/myHero.maxHealth < Menu.spell.heal.health/100 then
-					CastSpell(heal)
-				elseif  myHero.level < 6 and myHero.health/myHero.maxHealth < (Menu.spell.heal.health/100)*.75 then
-					CastSpell(heal)
-				end
-
-				if realheals and Menu.spell.heal.ally then
-					local ally = self:findClosestAlly(myHero)
-					if ally and not ally.dead and GetDistance(ally) < 850 then
-						if  ally.health/ally.maxHealth < Menu.spell.heal.health/100 then
-							CastSpell(heal)
-						end
-					end
-				end
-			end
+function ItemsAndSummoners:SpellProtection(unit, spell)
+	if not unit or not unit.valid or not spell then return end
+	if heal and Menu.Spell.SummonerSpellsMenu.Heal and myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == 0 and spell.target and spell.target.isMe and unit.team ~= myHero.team and unit.type == myHero.type then
+		if myHero.health/myHero.maxHealth <= (Menu.Spell.SummonerSpellsMenu.HealthPercent/100)*1.5 then
+			CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
 		end
 	end
-end
-function AutoIt:UseItemsCC(unit, scary)
-	if self.lastRemove > os.clock() - 1 then return end
-	for i, Item in pairs(Items) do
-		local Item = Items[i]
-		if GetInventoryItemIsCastable(Item.id) and GetDistanceSqr(unit) <= Item.range * Item.range then
-			if Item.id == 3139 or Item.id ==  3140 then
-				if scary then
-					DelayAction(function()
-						CastItem(Item.id)
-					end, Menu.item.qss.delay/1000)
-					self.lastRemove = os.clock()
-					return true
-				end
-			end
-		end
-	end
-	if Menu.item.qss.Summoner and SummonerSlot and myHero:CanUseSpell(SummonerSlot) == 0 then
-		DelayAction(function()
-			CastSpell(SummonerSlot)
-		end, Menu.item.qss.delay/1000)
-		self.lastRemove = os.clock()
+	if spell.name:lower():find("zedr") and spell.target == myHero then
+        if Menu.Items.DefensiveItems.Enable then
+    		DelayAction(function()
+    		    self:CastZhonya()
+    		end, .6)
+        end
 	end
 end
-function AutoIt:OnProcessSpell(unit, spell)
-	if Menu.item.qss.zed or Menu.item.qss.Always == 3 or Menu.item.qss.Always == 2 and Keys:ComboKey() then
-		if spell.name:lower():find("zedr") and spell.target == myHero then
-			DelayAction(function()
-				self:UseItemsCC(myHero, true)
-			end, 1.5)
-		end
-	end
-end
-function AutoIt:OnApplyBuff(source, unit, buff)
+function ItemsAndSummoners:CleanseCC(source, unit, buff)
 	if not buff or not source or not source.valid or not unit or not unit.valid then return end
-
-	if unit.isMe and (Menu.item.qss.Always == 3) or unit.isMe and (Menu.item.qss.Always == 2) and Keys:ComboKey() then
+	if unit.isMe and (Menu.Items.CleanseSettings.Enable == 2 or Menu.Items.CleanseSettings.Enable == 3 and Libraries:ComboKey()) then
 		if (source.charName == "Rammus" and buff.type ~= 8) or source.charName == "Alistar" or source.charName:lower():find("baron") or source.charName:lower():find("spiderboss") or source.charName == "LeeSin" or (source.charName == "Hecarim" and not buff.name:lower():find("fleeslow")) then return end
-		if buff.name and ((not cleanse and buff.type == 24) or buff.type == 5 or buff.type == 11 or buff.type == 22 or buff.type == 21 or buff.type == 8)
-		or (buff.type == 10 and buff.name and buff.name:lower():find("fleeslow"))
-		or (Menu.item.qss.Exhaust and buff.name and buff.name:lower():find("summonerexhaust")) then
-			if not source.charName:lower():find("blitzcrank") then
-				self:UseItemsCC(myHero, true)
+		if buff.name and ((not cleanse and buff.type == 24) or buff.type == 5 or buff.type == 11 or buff.type == 22 or buff.type == 21 or buff.type == 8) or (buff.type == 25 and Menu.Items.CleanseSettings.Blind)
+		or (buff.type == 10 and buff.name and buff.name:lower():find("fleeslow"))-- then
+		or (Menu.Items.CleanseSettings.Exhaust and buff.name and buff.name:lower():find("summonerexhaust")) then
+			if buff.name and buff.name:lower():find("caitlynyor") and CountEnemiesNearUnitReg(myHero, 700) == 0   then
+				return false
+			elseif not source.charName:lower():find("blitzcrank") then
+				self:UseItemsCC(myHero)
 			end
 		end
 	end
 end
-]]
+function ItemsAndSummoners:CastZhonya()
+	if not myHero.dead and not checkSpecific("kindredrnodeathbuff") and not checkSpecific("judicatorinter") then
+		local item = GetSlotItemFromName("ZhonyasHourglass")
+		if item then
+			CastSpell(item)
+			return true
+		end
+	end
+end
+function ItemsAndSummoners:UseItemsCC(unit)
+    print("Cleansing!")
+	if os.clock() - self.lastRemove < 1 then return end
+    for i=1,5 do
+        self.itemSlot = self:GetSlotItemFromName(self.itemsAndSpells.CleanseItems[i])
+        if self.itemSlot ~= nil then
+            DelayAction(function()
+                CastItem(Item.id)
+            end, Menu.Items.CleanseSettings.Delay/1000)
+            self.lastRemove = os.clock()
+        end
+	end
+
+
+	-- if MainMenu.cc.Summoner and SummonerSlot and myHero:CanUseSpell(SummonerSlot) == 0 then
+	-- 	DelayAction(function()
+	-- 		CastSpell(SummonerSlot)
+	-- 	end, MainMenu.cc.delay/1000)
+	-- 	lastRemove = os.clock()
+	-- end
+end
 
 class "Libraries"
 function Libraries:__init()
