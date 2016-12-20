@@ -116,6 +116,8 @@ function OnLoad()
         Menu.General:addSubMenu("Auto Buy", "Buy")
             Menu.General.Buy:addParam("StartingItems", "Purchase Starting Items", 1, true)
 		    Menu.General.Buy:addParam("TrinketSwitch", "Auto Switch to Blue Trinket", 1, true)
+        Menu.General:addSubMenu("Anti BaseUlt", "BaseUlt")
+            Menu.General.BaseUlt:addParam("Enabled", "Enable Anti BaseUlt", 1, true)
         Menu.General:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         Menu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
         Menu.General:addParam("Focus", "Left Click To Focus", SCRIPT_PARAM_LIST, 2, {"Never","For 1 Minute", "Until Removed"})
@@ -129,14 +131,10 @@ function OnLoad()
     Prediction()
     Libraries()
     ItemsAndSummoners()
-    DelayAction(function()
-        if UPDATED and WALKERLOADED then
-            Vip()
-            Ezreal()
-            Warding()
-            Core:Log("Loaded v.01")
-        end
-    end, 11)
+    Vip()
+    AntiBaseUlt()
+    Ezreal()
+    Warding()
 end
 
 class "Ezreal"
@@ -147,24 +145,27 @@ function Ezreal:__init()
         Q = {range = 1150, speed = 2000, delay = 0.6, radius = 75, collision = true},
         W = {range = 1000, speed = 1550, delay = 0.6, radius = 100, collision = false},
         E = {range = 475, MaxRange = 750},
-        R = {range = math.huge, speed = 2000, delay = 1, radius = 150, collision = false}
+        R = {range = 9999, speed = 2000, delay = 1, radius = 150, collision = false}
     }
 
     self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.Q.range - 400, myHero, MINION_SORT_HEALTH_ASC)
 
     AddTickCallback(function() self:Init() end)
     AddDrawCallback(function() self:OnDraw() end)
-    AddTickCallback(function() self:Combo() end)
-    AddTickCallback(function() self:Laneclear() end)
 end
 function Ezreal:Init()
-    self.QState = myHero:CanUseSpell(_Q)
-    self.WState = myHero:CanUseSpell(_W)
-    self.EState = myHero:CanUseSpell(_E)
-    self.RState = myHero:CanUseSpell(_R)
+    if not myHero.dead and UPDATED and WALKERLOADED then
+        self.QState = myHero:CanUseSpell(_Q)
+        self.WState = myHero:CanUseSpell(_W)
+        self.EState = myHero:CanUseSpell(_E)
+        self.RState = myHero:CanUseSpell(_R)
+        self:Combo()
+        self:Laneclear()
+        self:KillSecure()
+    end
 end
 function Ezreal:OnDraw()
-    if not myHero.dead then
+    if not myHero.dead and UPDATED and WALKERLOADED then
         if Menu.Draw.AASettings.Enabled then
             DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, Core:ReturnColor(Menu.Draw.AASettings.CircleColor), 100)
         end
@@ -278,8 +279,8 @@ end
 function Ezreal:KillSecure()
     for i, snipeTarget in pairs(GetEnemyHeroes()) do
         if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck and Menu.Hotkeys.ForceUlt then
-            local CastPosition, HitChance, Position = currentPred:GetLineCastPosition(snipeTarget, 1, 75, self.SpellTable.R.Range, self.SpellTable.R.Speed, myHero, self.SpellTable.R.Collision)
-            if CastPosition and HitChance >= 2 and GetDistance(CastPosition) < self.SpellTable.R.Range then
+            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(snipeTarget, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
+            if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.R.range then
                 CastSpell(_R, CastPosition.x, CastPosition.z)
             end
         end
@@ -319,10 +320,7 @@ function ItemsAndSummoners:__init()
     self.lastRemove = 0
     AddDrawCallback(function() self:OnDraw() end)
     AddLoadCallback(function() self:PrepSummonerSpells() end)
-    AddTickCallback(function() self:UsePotion() end)
-    AddTickCallback(function() self:HealToChase() end)
-    AddTickCallback(function() self:AutoIgnite() end)
-    AddTickCallback(function() self:UseItems() end)
+    AddTickCallback(function() self:OnTick() end)
     AddCastSpellCallback(function(iSpell, vStart, vEnd, target) self:FlashProtection(iSpell, vStart, vEnd, target) end)
     AddProcessAttackCallback(function(unit, spell) self:ProtectFromTower(unit, spell) end)
     AddProcessSpellCallback(function(unit, spell) self:SpellProtection(unit, spell) end)
@@ -353,6 +351,14 @@ function ItemsAndSummoners:PrepSummonerSpells()
     end
     if self.itemsAndSpells.SummonerSpells.Cleanse then
         Menu.Items.CleanseSettings:addParam("Cleanse", "Use Cleanse Summoner", SCRIPT_PARAM_ONOFF, true)
+    end
+end
+function ItemsAndSummoners:OnTick()
+    if not myHero.dead and UPDATED and WALKERLOADED then
+        self:UsePotion()
+        self:HealToChase()
+        self:AutoIgnite()
+        self:UseItems()
     end
 end
 function ItemsAndSummoners:GetSlotItemFromName(itemname)
@@ -402,14 +408,6 @@ function ItemsAndSummoners:FlashProtection(iSpell, vStart, vEnd, target)
     end
 end
 function ItemsAndSummoners:OnDraw()
-	for i = 6, 12 do
-		local item = myHero:GetSpellData(i).name
-		if item then
-			DrawText(item,20,10,20* i,ARGB(255,255,0,0))
-		end
-	end
-
-
     -- local correctedMouse = myHero + (Vector(mousePos) - myHero):normalized() * 450
     -- local correctedMouseD3d = D3DXVECTOR3(correctedMouse2.x,correctedMouse2.y,correctedMouse2.z)
     -- if GetDistance(myHero, mousePos) > 450 then
@@ -451,20 +449,20 @@ function ItemsAndSummoners:AutoIgnite()
     			local adDamage = myHero:CalcDamage(enemy, myHero.totalDamage)
     			spellDamage = spellDamage + adDamage
     			if myHero.health < myHero.maxHealth*(0.35+aggro) and enemy.health < enemy.maxHealth*(0.34+aggro)  and GetDistanceSqr(enemy) < 420 * 420 then
-    				CastSpell(ignite, enemy)
+    				CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
     			end
     			local r = myHero.range+65
     			local trange = r < 575 and r or 575
     			if self:isFleeingFromMe(enemy, trange) then
     				if enemy.health < IgniteDmg + spellDamage  + 10 then
     					if myHero.ms < enemy.ms then
-    						CastSpell(ignite, enemy)
+    						CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
     					end
     				end
     			end
     			if (GetDistanceSqr(enemy) > 160000 and (myHero.health+myHero.shield) < myHero.maxHealth*0.3) then
     				if enemy.health > spellDamage-(500*aggro) and enemy.health < IgniteDmg + spellDamage-(500*aggro)  then
-    					CastSpell(ignite, enemy)
+    					CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
     				end
     			end
     		end
@@ -526,7 +524,7 @@ function ItemsAndSummoners:HealToChase()
 				local trange = r < 575 and r or 575
 				if self:isFleeingFromMe(Target, trange) and self:CalcDist(Target) then
 					if not EREADY then
-						CastSpell(heal)
+						CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
 					else
 						CastSpell(_E, Target.x, Target.z)
 					end
@@ -592,7 +590,6 @@ function ItemsAndSummoners:CastZhonya()
 	end
 end
 function ItemsAndSummoners:UseItemsCC()
-    print("Cleansing!")
 	if os.clock() - self.lastRemove < 1 then return end
     for i=1,2 do
         self.cleanseSlot = self:GetSlotItemFromName(self.itemsAndSpells.CleanseItems[i])
@@ -619,60 +616,37 @@ function Libraries:__init()
     self.enemyHeroes = GetEnemyHeroes()
     self.sendOnce = true
     ORBWALKER = nil
-
-    predictonTable = {}
-
-    AddLoadCallback(function() self:OnOrbwalker() end)
+    WALKERLOADED = false
+    AddTickCallback(function() self:OnOrbwalker() end)
     AddTickCallback(function() self:Targeting() end)
     AddTickCallback(function() self:FocusTarget() end)
     AddDrawCallback(function() self:DrawFocus() end)
     AddMsgCallback(function(m,k) self:OnWndMsg(m,k) end)
 end
 function Libraries:OnOrbwalker()
-	Core:Log("Checking for external Orbwalkers! Please wait!")
-	DelayAction(
-    function()
-		if _G.MMA_IsLoaded  ~= nil then
-			Core:Log("MMA Detected!")
-			Menu.Hotkeys:addParam("OrbWalker", "MMA, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-			ORBWALKER = "mma"
-			WALKERLOADED = true
+    if WALKERLOADED == false then
+    	if _G.MMA_IsLoaded  ~= nil then
+    		Core:Log("MMA Detected!")
+    		Menu.Hotkeys:addParam("OrbWalker", "MMA, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
+    		ORBWALKER = "mma"
+    		WALKERLOADED = true
         elseif _G.SAC ~= nil then
-			Core:Log("SAC:P Detected")
-			Menu.Hotkeys:addParam("OrbWalker", "SAC:P, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-			ORBWALKER = "sacp"
-			WALKERLOADED = true
-		elseif _G.AutoCarry ~= nil then
-			Core:Log("SAC:R Detected")
-			Menu.Hotkeys:addParam("OrbWalker", "SAC:R, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-			ORBWALKER = "sacr"
-			WALKERLOADED = true
-		elseif _G._Pewalk ~= nil then
-			Core:Log("Pewalk Detected")
-			Menu.Hotkeys:addParam("OrbWalker", "PEWalk, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-			ORBWALKER = "pew"
-			WALKERLOADED = true
-		elseif FileExist(LIB_PATH.."Nebelwolfi's Orb Walker.lua") then
-			Core:Log("Moon Walker Detected")
-			require("Nebelwolfi's Orb Walker")
-			NebelwolfisOrbWalkerClass(Menu.Hotkeys)
-			ORBWALKER = "now"
-			WALKERLOADED = true
-		elseif FileExist(LIB_PATH.."SxOrbwalk.lua") then
-			Core:Log("No external orbwalker found! Activating SxOrbWalker!")
-			require("SxOrbWalk")
-			SxOrb:LoadToMenu(Menu.Hotkeys)
-			ORBWALKER = "sx"
-			WALKERLOADED = true
-		else
-			WALKERLOADED = false
-			local obw_URL = "https://raw.githubusercontent.com/Superx321/BoL/master/common/SxOrbWalk.lua"
-			local obw_PATH = LIB_PATH.."SxOrbwalk.lua"
-			Core:Log("Downloading SxOrbWalker. Dont press 2xF9! Please wait!")
-			DownloadFile(obw_URL, obw_PATH, function() Core:Log("<b><font color=\"#FF0000\">SxOrbWalker downloaded, please reload (2xF9)</b></font>") end)
-			return
-		end
-    end, 10)
+    		Core:Log("SAC:P Detected")
+    		Menu.Hotkeys:addParam("OrbWalker", "SAC:P, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
+    		ORBWALKER = "sacp"
+    		WALKERLOADED = true
+    	elseif _G.AutoCarry ~= nil and _G.Reborn_Loaded and _G.Reborn_Initialised then
+    		Core:Log("SAC:R Detected")
+    		Menu.Hotkeys:addParam("OrbWalker", "SAC:R, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
+    		ORBWALKER = "sacr"
+    		WALKERLOADED = true
+    	elseif _G._Pewalk ~= nil then
+    		Core:Log("Pewalk Detected")
+    		Menu.Hotkeys:addParam("OrbWalker", "PEWalk, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
+    		ORBWALKER = "pew"
+    		WALKERLOADED = true
+        end
+    end
 end
 function Libraries:ComboKey()
 	--if not Menu.hotkeys.checkhk then
@@ -707,23 +681,25 @@ function Libraries:HarassKey()
 	end
 end
 function Libraries:Targeting()
-    if SelectedTarget ~= nil and GetDistance(SelectedTarget) < 1500 and not SelectedTarget.dead then
-		Target = SelectedTarget
-	else
-		if ORBWALKER == "sacp" then
-            Target = _G.SAC:GetTarget()
-        elseif ORBWALKER == "sacr" then
-            Target = _G.AutoCarry.SkillsCrosshair.target
-		elseif ORBWALKER == "now" then
-			Target = _G.NebelwolfisOrbWalker:GetTarget()
-		elseif ORBWALKER == "pew" then
-			Target = _G._Pewalk.GetTarget()
-		elseif ORBWALKER == "sx" then
-			Target = _G.SxOrb:EnableAttacks()
-		elseif ORBWALKER == "mma" then
-			Target = _G.MMA_Target()
-		end
-	end
+    if WALKERLOADED then
+        if SelectedTarget ~= nil and GetDistance(SelectedTarget) < 1500 and not SelectedTarget.dead then
+    		Target = SelectedTarget
+    	else
+    		if ORBWALKER == "sacp" then
+                Target = _G.SAC:GetTarget()
+            elseif ORBWALKER == "sacr" then
+                Target = _G.AutoCarry.SkillsCrosshair.target
+    		elseif ORBWALKER == "now" then
+    			Target = _G.NebelwolfisOrbWalker:GetTarget()
+    		elseif ORBWALKER == "pew" then
+    			Target = _G._Pewalk.GetTarget()
+    		elseif ORBWALKER == "sx" then
+    			Target = _G.SxOrb:EnableAttacks()
+    		elseif ORBWALKER == "mma" then
+    			Target = _G.MMA_Target()
+    		end
+    	end
+    end
 end
 function Libraries:ClosestEnemy(pos)
 	if pos == nil then return math.huge, nil end
@@ -921,16 +897,64 @@ function Vip:__init()
                 ["Header"] = 0x000A,
                 ["VTable"] = 0x1075A24,
                 ["Packets"] = {0x5D},
+            },
+            ['Recall'] = {
+                ['Header'] = 0x00BB,
+                ['pos'] = 31,
+                ['stringPos'] = 6,
+                ['tpPos'] = 22,
+                ['isTP'] = 0x08,
+                ['bytes'] = {
+                    [0x9C] = 0x00,
+                    [0x9D] = 0x40,
+                    [0x04] = 0x1A,
+                    [0x00] = 0x1B,
+                    [0x0C] = 0x1C,
+                    [0x08] = 0x1D,
+                    [0x14] = 0x1E,
+                    [0x10] = 0x1F,
+                    [0x1C] = 0x20,
+                    [0x18] = 0x21,
+                    [0xE5] = 0x22,
+                    [0xE1] = 0x23,
+                    [0x5D] = 0x11,
+                    [0x24] = 0x12,
+                    [0x20] = 0x13,
+                    [0x2C] = 0x14,
+                    [0x28] = 0x15,
+                    [0x34] = 0x16,
+                },
             }
         }
     }
+    self.lshift, self.band, self.bxor = bit32.lshift, bit32.band, bit32.bxor
+    self.recallTimes = {
+        ['recall'] = 8,
+        ['odinrecall'] = 4.5,
+        ['odinrecallimproved'] = 4.0,
+        ['recallimproved'] = 7.0,
+        ['superrecall'] = 4.0,
+        ['teleport'] = 4.5,
+    }
+    self.ActiveRecalls = {}
+    self.BaseSpots = {
+        D3DXVECTOR3(396,182.132,462),
+        D3DXVECTOR3(14340.418,171.9777,14391.075)
+    }
 
-	if Menu.Packets and self.packets[self.gameVersion] ~= nil then
-        BaseUlt()
-        AddTickCallback(function() self:AutoBuy() end)
-        AddTickCallback(function() self:TauntOnKill() end)
-        AddTickCallback(function() self:SkinChanger() end)
-        AddTickCallback(function() self:AutoLeveler() end)
+	if self.packets[self.gameVersion] ~= nil then
+        AddRecvPacketCallback2(function(p) self:BaseUltRecvPacket(p) end)
+        AddDrawCallback(function() self:BaseUltOnDraw() end)
+        AddTickCallback(function() self:OnTick() end)
+    end
+end
+function Vip:OnTick()
+    if not myHero.dead and UPDATED and WALKERLOADED and Menu.Packets then
+        self:AutoBuy()
+        self:TauntOnKill()
+        self:SkinChanger()
+        self:AutoLeveler()
+        self:BaseUltDoUlt()
     end
 end
 function Vip:TauntOnKill()
@@ -1015,72 +1039,21 @@ function Vip:AutoLeveler()
 		end
 	end
 end
-
-class "BaseUlt"
-function BaseUlt:__init()
-    self.Packets = {
-		['Recall'] = {
-			['Header'] = 0x00BB,
-			['pos'] = 31,
-			['stringPos'] = 6,
-			['tpPos'] = 22,
-			['isTP'] = 0x08,
-			['bytes'] = {
-				[0x9C] = 0x00,
-				[0x9D] = 0x40,
-				[0x04] = 0x1A,
-				[0x00] = 0x1B,
-				[0x0C] = 0x1C,
-				[0x08] = 0x1D,
-				[0x14] = 0x1E,
-				[0x10] = 0x1F,
-				[0x1C] = 0x20,
-				[0x18] = 0x21,
-				[0xE5] = 0x22,
-				[0xE1] = 0x23,
-				[0x5D] = 0x11,
-				[0x24] = 0x12,
-				[0x20] = 0x13,
-				[0x2C] = 0x14,
-				[0x28] = 0x15,
-				[0x34] = 0x16,
-			},
-		}
-    }
-    self.lshift, self.band, self.bxor = bit32.lshift, bit32.band, bit32.bxor
-    self.recallTimes = {
-		['recall'] = 7.9,
-		['odinrecall'] = 4.4,
-		['odinrecallimproved'] = 3.9,
-		['recallimproved'] = 6.9,
-		['superrecall'] = 3.9,
-		['teleport'] = 4.45,
-	}
-    self.ActiveRecalls = {}
-
-    self.BaseSpots = {
-        D3DXVECTOR3(396,182.132,462),
-        D3DXVECTOR3(14340.418,171.9777,14391.075)
-    }
-    AddRecvPacketCallback2(function(p) self:RecvPacket(p) end)
-    AddDrawCallback(function() self:OnDraw() end)
-    AddTickCallback(function() self:DoUlt() end)
-end
-function BaseUlt:RecvPacket(p)
-	if p.header == self.Packets.Recall.Header then
-		p.pos = self.Packets.Recall.pos
+function Vip:BaseUltRecvPacket(p)
+	if p.header == self.packets[self.gameVersion].Recall.Header then
+		p.pos = self.packets[self.gameVersion].Recall.pos
 		local bytes = {}
 		for i=4, 1, -1 do
-			bytes[i] = self.Packets.Recall.bytes[p:Decode1()] or 0
+			bytes[i] = self.packets[self.gameVersion].Recall.bytes[p:Decode1()] or 0
 		end
 		local netID = self.bxor(self.lshift(self.band(bytes[1],0xFF),24),self.lshift(self.band(bytes[2],0xFF),16),self.lshift(self.band(bytes[3],0xFF),8),self.band(bytes[4],0xFF))
 		local o = objManager:GetObjectByNetworkId(DwordToFloat(netID))
 		if o and o.valid and o.type == 'AIHeroClient' and o.team == TEAM_ENEMY then
-			p.pos = self.Packets.Recall.tpPos
-			local isTP = p:Decode1() == self.Packets.Recall.isTP
+			p.pos = self.packets[self.gameVersion].Recall.tpPos
+			local isTP = p:Decode1() == self.packets[self.gameVersion].Recall.isTP
 			local str = ''
 			if not isTP then
-				p.pos=self.Packets.Recall.stringPos
+				p.pos=self.packets[self.gameVersion].Recall.stringPos
 				for i=1, p.size do
 					local b = p:Decode1()
 					if b == 0 then break end
@@ -1105,7 +1078,10 @@ function BaseUlt:RecvPacket(p)
 				}
 				return
 			elseif self.ActiveRecalls[o.networkID] then
-                if Menu.General.Verbose then
+                if Menu.General.Verbose and os.clock() - self.ActiveRecalls[o.networkID].endT >= -0.01  then
+                    Core:Log(o.charName .. " recalled")
+                elseif Menu.General.Verbose then
+                    print(os.clock() - (self.ActiveRecalls[o.networkID].startT + 8))
                     Core:Log(o.charName .. " cancled recall")
                 end
 				self.ActiveRecalls[o.networkID] = nil
@@ -1114,49 +1090,128 @@ function BaseUlt:RecvPacket(p)
 		end
 	end
 end
-function BaseUlt:OnDraw()
+function Vip:BaseUltOnDraw()
     if not myHero.dead and Menu.Spell.RMenu.BaseUlt then
         for i, enemy in pairs(self.ActiveRecalls) do
-            if BaseUlt:PredictIfUltCanKill(enemy) then
-                self:ProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self.BaseSpots[2]) / 2000) + 1) / 7.9 * 100)
+            if self:BaseUltPredictIfUltCanKill(enemy) then
+                self:BaseUltProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self:BaseUltGetBaseCoords()) / 2000) + 1) / 8 * 100)
             end
         end
     end
 end
-function BaseUlt:DoUlt()
+function Vip:BaseUltDoUlt()
     if not myHero.dead and Menu.Spell.RMenu.BaseUlt then
         self.time = GetDistance(myHero, self.BaseSpots[2]) / 2000
         for i, snipeTarget in pairs(self.ActiveRecalls) do
-            if (snipeTarget.endT - os.clock()) <= self.time + 1 and BaseUlt:PredictIfUltCanKill(snipeTarget) then
-                CastSpell(_R, self:GetBaseCoords().x, self:GetBaseCoords().z)
+            if (snipeTarget.endT - os.clock()) <= self.time + 1 and (snipeTarget.endT - os.clock()) >= self.time + .5 and self:BaseUltPredictIfUltCanKill(snipeTarget) then
+                CastSpell(_R, self:BaseUltGetBaseCoords().x, self:BaseUltGetBaseCoords().z)
             end
         end
     end
 end
-function BaseUlt:GetBaseCoords()
+function Vip:BaseUltGetBaseCoords()
     if myHero.team == 100 then
         return self.BaseSpots[2]
     else
         return self.BaseSpots[1]
     end
 end
-function BaseUlt:ProgressBar(x, y, percent, text, tick)
+function Vip:BaseUltProgressBar(x, y, percent, text, tick)
     DrawRectangle(x, y - 5, 300, 40, ARGB(255,100,100,100))
     DrawRectangle(x + 5, y, 290, 30, ARGB(255,30,30,30))
     DrawRectangle(x + 5, y, (percent/100)*290, 30, ARGB(255,255,0,0))
+    DrawRectangle(x + (6.9 / 7.9 * 290), y, (100/100)*290 - x + (6.9 / 7.9 * 290), 30, ARGB(100,30,30,30))
     if tick <= 100 then
-        DrawRectangle(x + (tick/100)*290, y, 2, 30, ARGB(255,0,255,0))
+        DrawRectangle(x + 5 + (tick/100)*290, y, 2, 30, ARGB(255,0,255,0))
     else
-        DrawRectangle(x + (100/100)*290, y, 2, 30, ARGB(255,0,255,0))
+        DrawRectangle(x + 5 + (100/100)*290, y, 2, 30, ARGB(255,0,255,0))
     end
     DrawText(text,20,y + 8,x + 5,ARGB(255,255,255,255))
 end
-function BaseUlt:PredictIfUltCanKill(target)
-    if Ezreal:UltDamage(target.object) > target.startHP + (target.hpRegen * 7.9) and myHero:CanUseSpell(_R) == READY then
+function Vip:BaseUltPredictIfUltCanKill(target)
+    if Ezreal:UltDamage(target.object) > target.startHP + (target.hpRegen * 7.9)  then
         return true
     else
         return false
     end
+end
+
+class "AntiBaseUlt"
+function AntiBaseUlt:__init()
+    self.lower, self.clock, self.recallingTime = string.lower, os.clock(), 0
+    self.spellData = {
+		['Ashe'] = {
+			MissileName = "EnchantedCrystalArrow",
+			Speed = 1600
+		},
+		['Draven'] = {
+			MissileName = "DravenR",
+			Speed = 2000
+		},
+		['Ezreal'] = {
+			MissileName = "EzrealTrueshotBarrage",
+			Speed = 2000
+		},
+		['Jinx'] = {
+			MissileName = "JinxR",
+			Speed = 1700
+		}
+	}
+
+    for _, Hero in pairs(GetEnemyHeroes()) do
+		if self.spellData[Hero.charName] ~= nil then
+			Menu.General.BaseUlt:addParam(Hero.charName, Hero.charName .. " - " .. self.spellData[Hero.charName].MissileName, SCRIPT_PARAM_ONOFF, true)
+		end
+	end
+    if next(Menu.General.BaseUlt._param) == nil then
+	    Menu.General.BaseUlt:addParam("Info", "No champions supported!", SCRIPT_PARAM_INFO, "")
+    else
+        AddProcessSpellCallback(function(unit, spell) self:OnProcessSpell(unit, spell) end)
+        AddCreateObjCallback(function(object) self:OnCreateObj(object) end)
+	end
+end
+function AntiBaseUlt:OnProcessSpell(unit, spell)
+	if not Menu.General.BaseUlt.Enabled then return end
+
+	if unit == myHero and string.find(spell.name, "recall") then
+		self.recallSpells = {
+			['recall'] = 8.0,
+			['recallimproved'] = 7.0,
+			['odinrecall'] = 4.5,
+			['odinrecallimproved'] = 4.0,
+			['superrecall'] = 4.0,
+			['superrecallimproved'] = 4.0
+		}
+
+		self.recallingTime = os.clock() + self.recallSpells[string.lower(spell.name)]
+	end
+end
+function AntiBaseUlt:OnCreateObj(object)
+    if not Menu.General.BaseUlt.Enabled then return end
+
+	if not object or not object.valid or object.type ~= "MissileClient" or not object.spellOwner or not object.spellOwner.valid
+    or self.recallingTime < os.clock() or object.spellOwner.type ~= myHero.type or object.spellOwner.team == myHero.team
+    or self.spellData[object.spellOwner.charName] == nil or not Menu.General.BaseUlt[object.spellOwner.charName]
+    or self.spellData[object.spellOwner.charName].MissileName ~= object.spellName then return end
+
+    self.time = os.clock() + (GetDistance(object.pos, GetFountain()) / self.spellData[object.spellOwner.charName].Speed)
+    if not self:IsLineCircleIntersection(GetFountain(), 500, object.pos, object.spellEnd) or 1 + self.recallingTime < self.time or self.recallingTime - 1 > self.time then
+		return
+	end
+
+	myHero:MoveTo(1 + myHero.x, 1 + myHero.z)
+	Core:Log("Saving you from " .. object.spellOwner.charName .. " BaseUlt")
+end
+function AntiBaseUlt:IsLineCircleIntersection(circle, radius, v1, v2)
+    local ToLineEnd = v2 - v1
+	local ToCircle = circle - v1
+	local Theta = (ToCircle.x * ToLineEnd.x + ToCircle.y * ToLineEnd.y) / (ToLineEnd.x * ToLineEnd.x + ToLineEnd.y * ToLineEnd.y)
+	Theta = Theta <= 0 and 0 or 1
+
+	local Closest = v1 + D3DXVECTOR3(ToLineEnd.x * Theta, ToLineEnd.y * Theta, ToLineEnd.z * Theta)
+	local D = circle - Closest
+	local Dist = (D.x * D.x) + (D.y * D.y)
+	return Dist <= radius * radius
 end
 
 class "Prediction"
@@ -1224,7 +1279,7 @@ end
 class "SxScriptUpdate"
 function CheckUpdates()
 	local ToUpdate = {}
-    ToUpdate.Version = .04
+    ToUpdate.Version = .05
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
     ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
