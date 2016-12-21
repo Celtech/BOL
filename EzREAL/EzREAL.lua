@@ -6,14 +6,12 @@
         Heal to save ally
         Defensive item usage
         Fix Left click focus
-        Base ult timer fix
         Fix last hit / Mixed mode Q
         Huamizer shit
         Hit chance fix :)
         Custom target selector?
         Custom minion target selector?
         E Logic
-        Anti Base Ult
         Base ult objects hit check
         Auto thresh lantern grabber
         Add Ezreal E to anti fail flash Logic
@@ -51,14 +49,13 @@ function OnLoad()
         Menu.Draw:addParam("DrawTarget", "Draw Target", 1, true)
     Menu:addSubMenu("Spells Menu & Masteries", "Spell")
         Menu.Spell:addSubMenu("Q Menu", "QMenu")
-            Menu.Spell.QMenu:addSubMenu("Combo Menu", "ComboMenu")
-                Menu.Spell.QMenu.ComboMenu:addParam("Enable", "Use in combo", 1, true)
-            Menu.Spell.QMenu:addSubMenu("Mixed Menu", "MixedMenu")
-                Menu.Spell.QMenu.MixedMenu:addParam("Enable", "Use in mixed mode", 1, true)
-            Menu.Spell.QMenu:addSubMenu("Last Hit Menu", "LastHitMenu")
-                Menu.Spell.QMenu.LastHitMenu:addParam("Enable", "Use in last hit", 1, true)
-            Menu.Spell.QMenu:addSubMenu("Clear Menu", "ClearMenu")
-                Menu.Spell.QMenu.ClearMenu:addParam("Enable", "Use in clear", 1, true)
+            Menu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
+            Menu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
+            Menu.Spell.QMenu:addParam("EnableClear", "Use in clear", 1, true)
+            Menu.Spell.QMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+            Menu.Spell.QMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+            Menu.Spell.QMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+            Menu.Spell.QMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
             Menu.Spell.QMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
         Menu.Spell:addSubMenu("W Menu", "WMenu")
             Menu.Spell.WMenu:addSubMenu("Combo Menu", "ComboMenu")
@@ -186,10 +183,11 @@ function Ezreal:OnDraw()
                 DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
             end
         end
-        --DrawText(tostring(),50,50,50,ARGB(255,255,0,0))
+        --local t,i = Prediction:GetNumberOfObjectCollisions(D3DXVECTOR3(14340.418,171.9777,14391.075))
+        --DrawText(tostring(i),50,50,50,ARGB(255,255,0,0))
         for i, snipeTarget in pairs(GetEnemyHeroes()) do
             if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
-                DrawText("You can kill " .. snipeTarget.charName .. "With Ult, Hold T to Ult",50,50,50,ARGB(255,255,0,0))
+                DrawText("You can kill " .. snipeTarget.charName .. " With Ult, Hold T to Ult",50,50,50 * i + 5,ARGB(255,255,0,0))
             end
         end
     end
@@ -441,32 +439,34 @@ function ItemsAndSummoners:UsePotion()
 end
 function ItemsAndSummoners:AutoIgnite()
     if self.itemsAndSpells.SummonerSpells.Ignite then
-    	local IgniteDmg = 50 + (20 * myHero.level)
-    	local aggro = Menu.Spell.SummonerSpellsMenu.SmartIgnite == 3 and 0.05 or 0
-    	for i, enemy in pairs(self.enemyHeroes) do
-    		if ValidTarget(enemy, 600) then
-    			local spellDamage = 0
-    			local adDamage = myHero:CalcDamage(enemy, myHero.totalDamage)
-    			spellDamage = spellDamage + adDamage
-    			if myHero.health < myHero.maxHealth*(0.35+aggro) and enemy.health < enemy.maxHealth*(0.34+aggro)  and GetDistanceSqr(enemy) < 420 * 420 then
-    				CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
-    			end
-    			local r = myHero.range+65
-    			local trange = r < 575 and r or 575
-    			if self:isFleeingFromMe(enemy, trange) then
-    				if enemy.health < IgniteDmg + spellDamage  + 10 then
-    					if myHero.ms < enemy.ms then
-    						CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
-    					end
-    				end
-    			end
-    			if (GetDistanceSqr(enemy) > 160000 and (myHero.health+myHero.shield) < myHero.maxHealth*0.3) then
-    				if enemy.health > spellDamage-(500*aggro) and enemy.health < IgniteDmg + spellDamage-(500*aggro)  then
-    					CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
-    				end
-    			end
-    		end
-    	end
+        if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Ignite) == READY then
+        	local IgniteDmg = 50 + (20 * myHero.level)
+        	local aggro = Menu.Spell.SummonerSpellsMenu.SmartIgnite == 3 and 0.05 or 0
+        	for i, enemy in pairs(self.enemyHeroes) do
+        		if ValidTarget(enemy, 600) then
+        			local spellDamage = 0
+        			local adDamage = myHero:CalcDamage(enemy, myHero.totalDamage)
+        			spellDamage = spellDamage + adDamage
+        			if myHero.health < myHero.maxHealth*(0.35+aggro) and enemy.health < enemy.maxHealth*(0.34+aggro)  and GetDistanceSqr(enemy) < 420 * 420 then
+        				CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
+        			end
+        			local r = myHero.range+65
+        			local trange = r < 575 and r or 575
+        			if self:isFleeingFromMe(enemy, trange) then
+        				if enemy.health < IgniteDmg + spellDamage  + 10 then
+        					if myHero.ms < enemy.ms then
+        						CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
+        					end
+        				end
+        			end
+        			if (GetDistanceSqr(enemy) > 160000 and (myHero.health+myHero.shield) < myHero.maxHealth*0.3) then
+        				if enemy.health > spellDamage-(500*aggro) and enemy.health < IgniteDmg + spellDamage-(500*aggro)  then
+        					CastSpell(self.itemsAndSpells.SummonerSpells.Ignite, enemy)
+        				end
+        			end
+        		end
+        	end
+        end
     end
 end
 function ItemsAndSummoners:ProtectFromTower(unit, spell)
@@ -515,24 +515,26 @@ function ItemsAndSummoners:CalcDist(enemy)
 end
 function ItemsAndSummoners:HealToChase()
 	if self.itemsAndSpells.SummonerSpells.Heal and Menu.Spell.SummonerSpellsMenu.HealToChase then
-		if ValidTarget(Target) and Menu.Spell.SummonerSpellsMenu.HealToChase then
-			local ourMS, targetMS = myHero.ms,Target.ms
-			local adDamage = myHero:CalcDamage(Target, myHero.totalDamage)
+        if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == READY then
+    		if ValidTarget(Target) and Menu.Spell.SummonerSpellsMenu.HealToChase then
+    			local ourMS, targetMS = myHero.ms,Target.ms
+    			local adDamage = myHero:CalcDamage(Target, myHero.totalDamage)
 
-			if Libraries:ComboKey() then
-				local r = myHero.range+65
-				local trange = r < 575 and r or 575
-				if self:isFleeingFromMe(Target, trange) and self:CalcDist(Target) then
-					if not EREADY then
-						CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
-					else
-						CastSpell(_E, Target.x, Target.z)
-					end
-				elseif EREADY and adDamage*2 > Target.health and GetDistance(Target) < (myHero.range + myHero.boundingRadius) + 475 then
-					CastSpell(_E, Target.x, Target.z)
-				end
-			end
-		end
+    			if Libraries:ComboKey() then
+    				local r = myHero.range+65
+    				local trange = r < 575 and r or 575
+    				if self:isFleeingFromMe(Target, trange) and self:CalcDist(Target) then
+    					if not EREADY then
+    						CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
+    					else
+    						CastSpell(_E, Target.x, Target.z)
+    					end
+    				elseif EREADY and adDamage*2 > Target.health and GetDistance(Target) < (myHero.range + myHero.boundingRadius) + 475 then
+    					CastSpell(_E, Target.x, Target.z)
+    				end
+    			end
+    		end
+        end
 	end
 end
 function ItemsAndSummoners:UseItems()
@@ -1275,18 +1277,27 @@ function Prediction:GetPredictedPosistion(hero, delay)
         end
     end
 end
+function Prediction:GetNumberOfObjectCollisions(endPos)
+    if _G.predictonTable.ActivePrediction ~= nil then
+        if _G.predictonTable.ActivePrediction == "VPrediction" then
+            return VPrediction:GetPredictedPos(endPos)
+        elseif _G.predictonTable.ActivePrediction == "FHPrediction" then
+            return FHPrediction.Collision(myHero, endPos, "R", myHero.team)
+        end
+    end
+end
 
 class "SxScriptUpdate"
 function CheckUpdates()
 	local ToUpdate = {}
-    ToUpdate.Version = .05
+    ToUpdate.Version = .06
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
     ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
     ToUpdate.ScriptPath =  "/Celtech/BOL/master/EzREAL/EzREAL.lua"
     ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
     ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) Core:Log("Updated to v"..NewVersion) end
-    ToUpdate.CallbackNoUpdate = function(OldVersion) Core:Log("No Updates Found")
+    ToUpdate.CallbackNoUpdate = function(OldVersion) Core:Log("No Updates Found, loading version " .. ToUpdate.Version)
         UPDATED = true
     end
     ToUpdate.CallbackNewVersion = function(NewVersion) Core:Log("New Version found ("..NewVersion.."). Please wait until its downloaded then F9x2") end
