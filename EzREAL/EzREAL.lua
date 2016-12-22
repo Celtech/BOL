@@ -26,6 +26,8 @@
 
 function OnLoad()
     if myHero.charName ~= "Ezreal" or not (VIP_USER) then return end
+    local version = .07
+
     Menu = scriptConfig("EzREAL As It Gets", "ezrealasitgets")
     Menu:addSubMenu("Drawing Menu", "Draw")
         Menu.Draw:addSubMenu("AA Settings", "AASettings")
@@ -44,6 +46,10 @@ function OnLoad()
             Menu.Draw.ESettings:addParam("EnabledMax", "Draw Attack Range", 1, false)
             Menu.Draw.ESettings:addParam("Hide", "Don't Draw When Not Castable", 1, true)
             Menu.Draw.ESettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,255})
+        Menu.Draw:addSubMenu("R Settings", "RSettings")
+            Menu.Draw.RSettings:addParam("Enabled", "Draw global snipe range on map", 1, true)
+            Menu.Draw.RSettings:addParam("Hide", "Don't draw when not castable", 1, true)
+            Menu.Draw.RSettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,255})
         Menu.Draw:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         Menu.Draw:addParam("StreamMode", "Enable Streaming Mode(F7)", SCRIPT_PARAM_ONKEYTOGGLE, false, 118)
         Menu.Draw:addParam("DrawTarget", "Draw Target", 1, true)
@@ -52,31 +58,37 @@ function OnLoad()
             Menu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
             Menu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
             Menu.Spell.QMenu:addParam("EnableClear", "Use in clear", 1, true)
+            Menu.Spell.QMenu:addParam("EnableKs", "Use to KS", 1, true)
             Menu.Spell.QMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
             Menu.Spell.QMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
             Menu.Spell.QMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
             Menu.Spell.QMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
             Menu.Spell.QMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
         Menu.Spell:addSubMenu("W Menu", "WMenu")
-            Menu.Spell.WMenu:addSubMenu("Combo Menu", "ComboMenu")
-            Menu.Spell.WMenu:addSubMenu("Mixed Menu", "MixedMenu")
-            Menu.Spell.WMenu:addSubMenu("Last Hit Menu", "LastHitMenu")
-            Menu.Spell.WMenu:addSubMenu("Clear Menu", "ClearMenu")
+            Menu.Spell.WMenu:addParam("EnableCombo", "Use in combo", 1, true)
+            Menu.Spell.WMenu:addParam("EnableHarass", "Use in harass", 1, false)
+            Menu.Spell.WMenu:addParam("EnableClear", "Use in clear", 1, false)
+            Menu.Spell.WMenu:addParam("EnableKs", "Use to KS", 1, true)
+            Menu.Spell.WMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+            Menu.Spell.WMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+            Menu.Spell.WMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+            Menu.Spell.WMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
             Menu.Spell.WMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
         Menu.Spell:addSubMenu("E Menu", "EMenu")
-            Menu.Spell.EMenu:addSubMenu("Combo Menu", "ComboMenu")
-            Menu.Spell.EMenu:addSubMenu("Mixed Menu", "MixedMenu")
-            Menu.Spell.EMenu:addSubMenu("Last Hit Menu", "LastHitMenu")
-            Menu.Spell.EMenu:addSubMenu("Clear Menu", "ClearMenu")
-            Menu.Spell.EMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
+            Menu.Spell.EMenu:addParam("Enable", "Use as gap closer", SCRIPT_PARAM_LIST, 1,{"Never", "Combo", "Combo+Harass"})
+            Menu.Spell.EMenu:addParam("EnableKs", "Use to KS", 1, true)
+            Menu.Spell.EMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+            Menu.Spell.EMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
         Menu.Spell:addSubMenu("R Menu", "RMenu")
-            Menu.Spell.RMenu:addSubMenu("Combo Menu", "ComboMenu")
-            Menu.Spell.RMenu:addSubMenu("Mixed Menu", "MixedMenu")
-            Menu.Spell.RMenu:addSubMenu("Last Hit Menu", "LastHitMenu")
-            Menu.Spell.RMenu:addSubMenu("Clear Menu", "ClearMenu")
+            Menu.Spell.RMenu:addParam("EnableCombo", "Use in combo", 1, true)
+            Menu.Spell.RMenu:addParam("ComboRangeCheck", "Combo ult range check", SCRIPT_PARAM_SLICE, 800, 0, 9000, 0)
+            Menu.Spell.RMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+            Menu.Spell.RMenu:addParam("EnableSnipe", "Ult to global snipe", 1, true)
+            Menu.Spell.RMenu:addParam("SnipeRangeCheck", "Global snipe range check", SCRIPT_PARAM_SLICE, 1500, 0, 9000, 0)
+            Menu.Spell.RMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
             Menu.Spell.RMenu:addParam("BaseUlt", "Enable base ult", 1, true)
+            Menu.Spell.RMenu:addParam("PlaceHolder3", "", SCRIPT_PARAM_INFO, "")
             Menu.Spell.RMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
-            Menu.Spell.RMenu:addParam("RangeCheck", "Ult range check", SCRIPT_PARAM_SLICE, 1500, 0, 9000, 0)
         Menu.Spell:addSubMenu("Summoner Spells Menu", "SummonerSpellsMenu")
         Menu.Spell:addSubMenu("Masteries Menu", "MasteriesMenu")
             Menu.Spell.MasteriesMenu:addParam("FerocityMasteries", "Ferocity Masteries", SCRIPT_PARAM_LIST, 1,{"None","Bounty Hunter","Double Edged Sword","Battle Trance"})
@@ -116,15 +128,28 @@ function OnLoad()
         Menu.General:addSubMenu("Anti BaseUlt", "BaseUlt")
             Menu.General.BaseUlt:addParam("Enabled", "Enable Anti BaseUlt", 1, true)
         Menu.General:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+        Menu.General:addParam("Lane", "Get to lane faster", 1, true)
         Menu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
         Menu.General:addParam("Focus", "Left Click To Focus", SCRIPT_PARAM_LIST, 2, {"Never","For 1 Minute", "Until Removed"})
 
     Menu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    Menu:addParam("Mode", "Damage Mode", SCRIPT_PARAM_LIST, 1,{"AD","AP"})
     Menu:addParam("Packets", "Enable Packet Features", 1, true)
     Menu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Mastery","Joke","Taunt","Dance","Laugh"})
     Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulse Fire", "TPA", "Debonair", "Ace of Spades", "Arcade"})
 
-    CheckUpdates()
+
+    local Title = Menu:permaShow("PlaceHolder")
+    Menu.permaShowEdit(Title, "lText", "EzREAL As It Gets")
+    Menu.permaShowEdit(Title, "rText", "v" .. tostring(version))
+
+    ComboModePermaShow = Menu.Draw:permaShow("PlaceHolder")
+    Menu.permaShowEdit(ComboModePermaShow, "lText", "Mode")
+    Menu.permaShowEdit(ComboModePermaShow, "rText", "None")
+    Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(100, 60, 60, 60))
+    Menu.General:permaShow("PlaceHolder")
+
+    CheckUpdates(version)
     Prediction()
     Libraries()
     ItemsAndSummoners()
@@ -136,12 +161,12 @@ end
 
 class "Ezreal"
 function Ezreal:__init()
-    self.QState, self.WState,  self.EState = nil, nil, nil
-
+    self.QState, self.WState, self.EState = nil, nil, nil
+    self.manaPercent = nil
     self.SpellTable = {
         Q = {range = 1150, speed = 2000, delay = 0.6, radius = 75, collision = true},
         W = {range = 1000, speed = 1550, delay = 0.6, radius = 100, collision = false},
-        E = {range = 475, MaxRange = 750},
+        E = {range = 475, maxRange = 750},
         R = {range = 9999, speed = 2000, delay = 1, radius = 150, collision = false}
     }
 
@@ -152,13 +177,24 @@ function Ezreal:__init()
 end
 function Ezreal:Init()
     if not myHero.dead and UPDATED and WALKERLOADED then
-        self.QState = myHero:CanUseSpell(_Q)
-        self.WState = myHero:CanUseSpell(_W)
-        self.EState = myHero:CanUseSpell(_E)
-        self.RState = myHero:CanUseSpell(_R)
-        self:Combo()
-        self:Laneclear()
+        self.QState = myHero:CanUseSpell(_Q) == READY
+        self.WState = myHero:CanUseSpell(_W) == READY
+        self.EState = myHero:CanUseSpell(_E) == READY
+        self.RState = myHero:CanUseSpell(_R) == READY
+        self.manaPercent = myHero.mana / myHero.maxMana * 100
+
+        if Libraries:ComboKey() then
+            self:Combo()
+        elseif Libraries:HarassKey() then
+            self:Mixed()
+        elseif Libraries:ClearKey() then
+            self:Laneclear()
+        else
+            Core:PermaShowModeSwitch(0)
+        end
+
         self:KillSecure()
+        self:GetToLaneFaster()
     end
 end
 function Ezreal:OnDraw()
@@ -166,17 +202,20 @@ function Ezreal:OnDraw()
         if Menu.Draw.AASettings.Enabled then
             DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, Core:ReturnColor(Menu.Draw.AASettings.CircleColor), 100)
         end
-        if Menu.Draw.QSettings.Enabled and self.QState == READY or not Menu.Draw.QSettings.Hide then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.Range, 1, Core:ReturnColor(Menu.Draw.QSettings.CircleColor), 100)
+        if Menu.Draw.QSettings.Enabled and self.QState or not Menu.Draw.QSettings.Hide then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, Core:ReturnColor(Menu.Draw.QSettings.CircleColor), 100)
         end
-        if Menu.Draw.WSettings.Enabled and self.WState == READY or not Menu.Draw.WSettings.Hide then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.Range, 1, Core:ReturnColor(Menu.Draw.WSettings.CircleColor), 100)
+        if Menu.Draw.WSettings.Enabled and self.WState or not Menu.Draw.WSettings.Hide then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.range, 1, Core:ReturnColor(Menu.Draw.WSettings.CircleColor), 100)
         end
-        if Menu.Draw.ESettings.Enabled and self.EState == READY or not Menu.Draw.ESettings.Hide then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.Range, 1, Core:ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
+        if Menu.Draw.ESettings.Enabled and self.EState or not Menu.Draw.ESettings.Hide then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.range, 1, Core:ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
         end
-        if Menu.Draw.ESettings.Enabled and self.EState == READY or not Menu.Draw.ESettings.Hide then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.MaxRange, 1, Core:ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
+        if Menu.Draw.ESettings.Enabled and self.EState or not Menu.Draw.ESettings.Hide then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.maxRange, 1, Core:ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
+        end
+        if Menu.Draw.RSettings.Enabled and self.RState or not Menu.Draw.RSettings.Hide then
+            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheck, 1, Core:ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
         end
         if Menu.Draw.DrawTarget then
             if Target ~= nil then
@@ -185,84 +224,94 @@ function Ezreal:OnDraw()
         end
         --local t,i = Prediction:GetNumberOfObjectCollisions(D3DXVECTOR3(14340.418,171.9777,14391.075))
         --DrawText(tostring(i),50,50,50,ARGB(255,255,0,0))
-        for i, snipeTarget in pairs(GetEnemyHeroes()) do
-            if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
-                DrawText("You can kill " .. snipeTarget.charName .. " With Ult, Hold T to Ult",50,50,50 * i + 5,ARGB(255,255,0,0))
-            end
-        end
+        -- for i, snipeTarget in pairs(GetEnemyHeroes()) do
+        --     -- if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
+        --     --     DrawText("You can kill " .. snipeTarget.charName .. " With Ult, Hold T to Ult",50,50,50 * i + 5,ARGB(255,255,0,0))
+        --     -- end
+        --     DrawRectangle(self:GetAbilityFramePos(snipeTarget).x, self:GetAbilityFramePos(snipeTarget).y, 1, 10, ARGB(255,0,255,0))
+        --     DrawRectangle(self:GetAbilityFramePos(snipeTarget).x + 105, self:GetAbilityFramePos(snipeTarget).y, 1, 10, ARGB(255,0,255,0))
+        -- end
+
+        self:DamageDrawings()
     end
 end
 function Ezreal:Combo()
-    if Libraries:ComboKey() and Target ~= nil then
-        if self.WState == READY then
-            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.W.delay, self.SpellTable.W.radius, self.SpellTable.W.range, self.SpellTable.W.speed, self.SpellTable.W.collision, self.SpellTable.W)
-            if CastPosition and HitChance >= Menu.Spell.WMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.W.range then
-                CastSpell(_W, CastPosition.x, CastPosition.z)
+    if Menu.Mode == 1 then
+        Core:PermaShowModeSwitch(1)
+        if ValidTarget(Target) then
+            if self.QState then
+                local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
+                if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.Q.range then
+                    if Info.collision ~= nil and not Info.collision or Info.collision == nil then
+                        CastSpell(_Q, CastPosition.x, CastPosition.z)
+                    end
+                end
             end
-        end
-        if self.QState == READY then
-            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
-            if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.Q.range then
-                if Info.collision ~= nil and not Info.collision or Info.collision == nil then
-                    CastSpell(_Q, CastPosition.x, CastPosition.z)
+
+            if self.WState then
+                local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.W.delay, self.SpellTable.W.radius, self.SpellTable.W.range, self.SpellTable.W.speed, self.SpellTable.W.collision, self.SpellTable.W)
+                if CastPosition and HitChance >= Menu.Spell.WMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.W.range then
+                    CastSpell(_W, CastPosition.x, CastPosition.z)
+                end
+            end
+
+            if self.RState and self:UltDamage(Target) > Target.health and GetDistance(Target) < Menu.Spell.RMenu.ComboRangeCheck then
+                local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
+                if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.R.range then
+                    CastSpell(_R, CastPosition.x, CastPosition.z)
                 end
             end
         end
-        if self.RState == READY and self:UltDamage(Target) > Target.health then
-            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
-            if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.R.range then
-                CastSpell(_R, CastPosition.x, CastPosition.z)
+    else
+        if IsWallOfGrass(myHero.pos) then
+            Core:PermaShowModeSwitch(2)
+            if ValidTarget(Target) then
+                if self.RState and GetDistance(Target) <= 2000 and self.EState and self.QState and self.WState then
+                    self:CastR()
+                end
+
+                if self.EState and GetDistance(Target) < self.SpellTable.E.maxRange and not self.RState then
+                    self:CastE(Target.x,Target.z)
+                end
+
+                if self.QState and not self.RState then
+                    self:CastQ()
+                end
+
+                if self.WState and not self.RState then
+                    self:CastW()
+                end
             end
+        else
+            Core:PermaShowModeSwitch(1)
         end
     end
 end
 function Ezreal:Mixed()
-    if Libraries:HarassKey() and Target ~= nil then
-        if self.QState == READY and Menu.Spell.QMenu.MixedMenu.Enable then
-            local CastPosition, HitChance, Position = vPred:GetLineCastPosition(Target, 0.6, 75, self.SpellTable.Q.Range, self.SpellTable.Q.Speed, myHero, self.SpellTable.Q.Collision)
-            if CastPosition and HitChance >= 2 and GetDistance(CastPosition) < self.SpellTable.Q.Range then
-                CastSpell(_Q, CastPosition.x, CastPosition.z)
-            end
+    Core:PermaShowModeSwitch(4)
+    if ValidTarget(Target) then
+        if Menu.Spell.QMenu.EnableHarass and self.manaPercent > Menu.Spell.QMenu.HarassMana then
+            self:CastQ()
         end
 
-        --if self.WState == READY then
-        --    local CastPosition, HitChance, Position = currentPred:GetLineCastPosition(Target, 0.6, 75, self.SpellTable.W.Range, self.SpellTable.W.Speed, myHero, self.SpellTable.W.Collision)
-        --    if CastPosition and HitChance >= 2 and GetDistance(CastPosition) < self.SpellTable.W.Range then
-        --        CastSpell(_W, CastPosition.x, CastPosition.z)
-        --    end
-        --end
-        if not _G.AutoCarry.Orbwalker:CanShoot() then
-            DelayAction(function()
-            if self.QState == READY then
-                self.enemyMinions:update()
-                for index, minion in pairs(self.enemyMinions.objects) do
-                    if minion.health < 200 then
-                        local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(minion, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
-                        if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.Q.range then
-                            if Info.collision ~= nil and not Info.collision or Info.collision == nil then
-                                CastSpell(_Q, CastPosition.x, CastPosition.z)
-                            end
-                        end
-                    end
-                end
-            end
-        end,.25)
+        if Menu.Spell.WMenu.EnableHarass and self.manaPercent > Menu.Spell.WMenu.HarassMana then
+            self:CastW()
+        end
+
+        if Menu.Spell.EMenu.Enable == 3 and self.manaPercent > Menu.Spell.EMenu.HarassMana and GetDistance(Target) > myHero.range + myHero.boundingRadius and GetDistance(Target) < myHero.range + myHero.boundingRadius + self.SpellTable.E.range then
+            self:CastE(Target.x, Target.z)
         end
     end
 end
 function Ezreal:Laneclear()
-    if not _G.AutoCarry.Orbwalker:CanShoot() then
-        if self.QState == READY then
-            self.enemyMinions:update()
-            for index, minion in pairs(self.enemyMinions.objects) do
-                if minion.health < 200 then
-                    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(minion, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
-                    if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.Q.range then
-                        if Info.collision ~= nil and not Info.collision or Info.collision == nil then
-                            CastSpell(_Q, CastPosition.x, CastPosition.z)
-                        end
-                    end
-                end
+    Core:PermaShowModeSwitch(3)
+end
+function Ezreal:KillSecure()
+    for i, snipeTarget in pairs(GetEnemyHeroes()) do
+        if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck and Menu.Hotkeys.ForceUlt then
+            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(snipeTarget, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
+            if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.R.range then
+                CastSpell(_R, CastPosition.x, CastPosition.z)
             end
         end
     end
@@ -274,14 +323,79 @@ function Ezreal:UltDamage(unit)
    local trueDmg = baseDmg[sLvl] + (myHero.ap * .9) + (myHero.damage)
    return math.floor(myHero:CalcMagicDamage(unit, trueDmg))
 end
-function Ezreal:KillSecure()
-    for i, snipeTarget in pairs(GetEnemyHeroes()) do
-        if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck and Menu.Hotkeys.ForceUlt then
-            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(snipeTarget, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
-            if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.R.range then
-                CastSpell(_R, CastPosition.x, CastPosition.z)
-            end
+function Ezreal:GetToLaneFaster()
+	local function inCircle(cx,cz,x,z,r)
+		if (math.pow(cx-x,2)+math.pow(cz-z,2)<math.pow(r,2)) then
+			return true
+		else
+			return false
+		end
+	end
+
+	if Menu.General.Lane then
+		for _, i in pairs(GetTurrets()) do
+			if i.range == 1050 then
+				if not inCircle(myHero.x, myHero.z, i.x, i.z, 900) and inCircle(myHero.x, myHero.z, i.x, i.z, 1050) and self.EState and not inCircle(myHero.endPath.x, myHero.endPath.z, i.x, i.z, 1050) then
+					CastSpell(_E, myHero.endPath.x, myHero.endPath.z)
+				end
+			end
+		end
+	end
+end
+function Ezreal:CastQ()
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
+    if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy then
+        if Info.collision ~= nil and not Info.collision or Info.collision == nil then
+            CastSpell(_Q, CastPosition.x, CastPosition.z)
         end
+    end
+end
+function Ezreal:CastW()
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.W.delay, self.SpellTable.W.radius, self.SpellTable.W.range, self.SpellTable.W.speed, self.SpellTable.W.collision, self.SpellTable.W)
+    if CastPosition and HitChance >= Menu.Spell.WMenu.Accuracy then
+        CastSpell(_W, CastPosition.x, CastPosition.z)
+    end
+end
+function Ezreal:CastE(x,z)
+    CastSpell(_E, x, z)
+end
+function Ezreal:CastR()
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
+    if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy then
+        CastSpell(_R, CastPosition.x, CastPosition.z)
+    end
+end
+function Ezreal:GetAbilityFramePos(unit)
+	local barPos = GetUnitHPBarPos(unit)
+	local barOffset = GetUnitHPBarOffset(unit)
+	local t = {
+		["Darius"] = -0.05,
+		["Renekton"] = -0.05,
+		["Sion"] = -0.05,
+		["Thresh"] = 0.03,
+	}
+	barOffset.x = t[unit.charName] or 0
+
+	return Point(barPos.x - 67 + barOffset.x * 150, barPos.y + barOffset.y - 2)
+end
+function Ezreal:DamageDrawings()
+    if ValidTarget(Target) then
+        if self.QState then self.QDamage = myHero:CalcMagicDamage(Target, (20*myHero:GetSpellData(_Q).level+15+.4*myHero.ap+1.1*myHero.totalDamage)) else self.QDamage = 0 end
+        if self.WState then self.WDamage = myHero:CalcMagicDamage(Target, (45*myHero:GetSpellData(_W).level+25+.8*myHero.ap)) else self.WDamage = 0 end
+        if self.EState then self.EDamage = myHero:CalcMagicDamage(Target, (50*myHero:GetSpellData(_E).level+25+.75*myHero.ap+.5*myHero.totalDamage)) else self.EDamage = 0 end
+        if self.RState then self.RDamage = myHero:CalcMagicDamage(Target, (350+(myHero:GetSpellData(_R).level - 1)*150+.9*myHero.ap+1*myHero.totalDamage)) else self.RDamage = 0 end
+
+        self.targetHealthLocation = (Target.health) / Target.maxHealth * 106
+        self.targetHealthLocationDmg = (Target.health - (self.QDamage or 0 + self.WDamage or 0 + self.EDamage or 0 + self.RDamage or 0)) / Target.maxHealth * 106
+
+        --DrawRectangle(self:GetAbilityFramePos(Target).x, self:GetAbilityFramePos(Target).y, -1, 10, ARGB(255,0,255,0))
+        --DrawRectangle(self:GetAbilityFramePos(Target).x + self.targetHealthLocation, self:GetAbilityFramePos(Target).y, 1, 10, ARGB(255,0,255,0))
+        if self:GetAbilityFramePos(Target).x + self.targetHealthLocationDmg < self:GetAbilityFramePos(Target).x then
+            DrawRectangle(self:GetAbilityFramePos(Target).x, self:GetAbilityFramePos(Target).y, self.targetHealthLocation + 1, 10, ARGB(50,0,255,0))
+        else
+            DrawRectangle(self:GetAbilityFramePos(Target).x + self.targetHealthLocation + 1, self:GetAbilityFramePos(Target).y, self.targetHealthLocationDmg - self.targetHealthLocation, 10, ARGB(50,0,255,0))
+        end
+
     end
 end
 
@@ -357,6 +471,7 @@ function ItemsAndSummoners:OnTick()
         self:HealToChase()
         self:AutoIgnite()
         self:UseItems()
+        self:AutoLeveler()
     end
 end
 function ItemsAndSummoners:GetSlotItemFromName(itemname)
@@ -612,6 +727,18 @@ function ItemsAndSummoners:UseItemsCC()
 	-- 	lastRemove = os.clock()
 	-- end
 end
+function ItemsAndSummoners:AutoLeveler()
+	if Menu.General.Level.Enable then
+	if Menu.General.Level.Ignore and myHero.level <= 3 then return end
+		self.abilitySequence = {
+            {1,3,1,2,1,4,1,3,1,3,4,3,3,2,2,4,2,2},
+            {1,2,3,1,1,4,1,2,1,2,4,2,2,3,3,4,3,3},
+            {2,1,3,2,2,4,2,1,2,1,4,1,1,3,3,4,3,3},
+            {2,3,1,2,2,4,2,3,2,3,4,3,3,1,1,4,1,1}
+        }
+        autoLevelSetSequence(self.abilitySequence[Menu.General.Level.Sequence])
+	end
+end
 
 class "Libraries"
 function Libraries:__init()
@@ -682,6 +809,17 @@ function Libraries:HarassKey()
 		return _G.MMA_IsDualCarrying()
 	end
 end
+function Libraries:ClearKey()
+	if ORBWALKER == "sacp" then
+		return _G.AutoCarry.Keys.LaneClear
+    elseif ORBWALKER == "sacr" then
+		return _G.AutoCarry.Keys.LaneClear
+	elseif ORBWALKER == "pew" then
+		return _G._Pewalk.GetActiveMode().LaneClear
+	elseif ORBWALKER == "mma" then
+		return _G.MMA_IsLaneClearing()
+	end
+end
 function Libraries:Targeting()
     if WALKERLOADED then
         if SelectedTarget ~= nil and GetDistance(SelectedTarget) < 1500 and not SelectedTarget.dead then
@@ -690,6 +828,7 @@ function Libraries:Targeting()
     		if ORBWALKER == "sacp" then
                 Target = _G.SAC:GetTarget()
             elseif ORBWALKER == "sacr" then
+                _G.AutoCarry.Crosshair:SetSkillCrosshairRange(1200)
                 Target = _G.AutoCarry.SkillsCrosshair.target
     		elseif ORBWALKER == "now" then
     			Target = _G.NebelwolfisOrbWalker:GetTarget()
@@ -806,6 +945,24 @@ end
 function Core:Log(message)
     print("<font color='#ff0000'></b>[EzREAL] </b></font><font color='#00ff00'>"..message.."</font>")
 end
+function Core:PermaShowModeSwitch(mode)
+    if mode == 0 then
+        Menu.permaShowEdit(ComboModePermaShow, "rText", "None")
+        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(100, 60, 60, 60))
+    elseif mode == 1 then
+        Menu.permaShowEdit(ComboModePermaShow, "rText", "Normal")
+        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(185, 0, 165, 80))
+    elseif mode == 2 then
+        Menu.permaShowEdit(ComboModePermaShow, "rText", "Burst Delete")
+        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(185, 165, 0, 80))
+    elseif mode == 3 then
+        Menu.permaShowEdit(ComboModePermaShow, "rText", "Lane Clear")
+        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(185, 0, 80, 165))
+    elseif mode == 4 then
+        Menu.permaShowEdit(ComboModePermaShow, "rText", "Harass")
+        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(185, 80, 0, 165))
+    end
+end
 
 class "Warding"
 function Warding:__init()
@@ -875,7 +1032,6 @@ function Vip:__init()
 	self.killCount = myHero.kills
     self.lastSkin = 0
     self.firstBuy = true
-    self.qOff, self.wOff, self.eOff, self.rOff = 0,0,0,0
     self.gameVersion = GetGameVersion():sub(1,10)
     self.packets = {
         ["6.24.169.4"] = {
@@ -955,7 +1111,6 @@ function Vip:OnTick()
         self:AutoBuy()
         self:TauntOnKill()
         self:SkinChanger()
-        self:AutoLeveler()
         self:BaseUltDoUlt()
     end
 end
@@ -1013,31 +1168,6 @@ function Vip:AutoBuy()
 	if Menu.General.Buy.TrinketSwitch then
 		if myHero.level >= 9 and myHero:GetSpellData(ITEM_7).name ~= "TrinketOrbLvl3" and InFountain() then
 			self:BuyItem("Blue Trinket")
-		end
-	end
-end
-function Vip:AutoLeveler()
-	if Menu.General.Level.Enable then
-	if Menu.General.Level.Ignore and myHero.level <= 3 then return end
-		self.abilitySequence = {
-            {1,3,1,2,1,4,1,3,1,3,4,3,3,2,2,4,2,2},
-            {1,2,3,1,1,4,1,2,1,2,4,2,2,3,3,4,3,3},
-            {2,1,3,2,2,4,2,1,2,1,4,1,1,3,3,4,3,3},
-            {2,3,1,2,2,4,2,3,2,3,4,3,3,1,1,4,1,1}
-        }
-
-		local qL, wL, eL, rL = myHero.GetSpellData(myHero,_Q).level + self.qOff, myHero.GetSpellData(myHero,_W).level + self.wOff, myHero.GetSpellData(myHero,_E).level + self.eOff, myHero.GetSpellData(myHero,_R).level + self.rOff
-		if qL + wL + eL + rL < myHero.level then
-			local spellSlot = { SPELL_1, SPELL_2, SPELL_3, SPELL_4, }
-
-			local level = { 0, 0, 0, 0 }
-			for i = 1, myHero.level, 1 do
-				level[self.abilitySequence[Menu.General.Level.Sequence][i]] = level[self.abilitySequence[Menu.General.Level.Sequence][i]] + 1
-			end
-
-			for i, v in ipairs({ qL, wL, eL, rL }) do
-				if v < level[i] then LevelSpell(spellSlot[i]) end
-			end
 		end
 	end
 end
@@ -1288,21 +1418,20 @@ function Prediction:GetNumberOfObjectCollisions(endPos)
 end
 
 class "SxScriptUpdate"
-function CheckUpdates()
+function CheckUpdates(Version)
 	local ToUpdate = {}
-    ToUpdate.Version = .06
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
     ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
     ToUpdate.ScriptPath =  "/Celtech/BOL/master/EzREAL/EzREAL.lua"
     ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
     ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) Core:Log("Updated to v"..NewVersion) end
-    ToUpdate.CallbackNoUpdate = function(OldVersion) Core:Log("No Updates Found, loading version " .. ToUpdate.Version)
+    ToUpdate.CallbackNoUpdate = function(OldVersion) Core:Log("No Updates Found, loading version " .. Version)
         UPDATED = true
     end
     ToUpdate.CallbackNewVersion = function(NewVersion) Core:Log("New Version found ("..NewVersion.."). Please wait until its downloaded then F9x2") end
     ToUpdate.CallbackError = function(NewVersion) Core:Log("Error while Downloading. Please try again.") end
-    SxScriptUpdate(ToUpdate.Version,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError)
+    SxScriptUpdate(Version,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError)
 end
 function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptPath, SavePath, CallbackUpdate, CallbackNoUpdate, CallbackNewVersion,CallbackError)
     self.LocalVersion = LocalVersion
