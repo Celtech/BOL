@@ -1,6 +1,7 @@
 function OnLoad()
     local version = 0.02
     CheckUpdatesLib()
+    CheckUpdates(version)
 end
 
 class "SxScriptUpdate"
@@ -35,12 +36,11 @@ function CheckUpdates(Version)
     ToUpdate.VersionPath = "/Celtech/BOL/master/Orianna/version"
     ToUpdate.ScriptPath =  "/Celtech/BOL/master/Orianna/Orianna.lua"
     ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
-    ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) Log("Updated to v"..NewVersion) end
-    ToUpdate.CallbackNoUpdate = function(OldVersion) Log("No Updates Found, loading version " .. Version)
-        UPDATED = true
-    end
-    ToUpdate.CallbackNewVersion = function(NewVersion) Log("New Version found ("..NewVersion.."). Please wait until its downloaded then F9x2") end
-    ToUpdate.CallbackError = function(NewVersion) Log("Error while Downloading. Please try again.") end
+    ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."Updated to v"..NewVersion.."</font>") end
+    ToUpdate.CallbackNoUpdate = function(OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."No Updates Found, loading version ".. OldVersion .."</font>") UPDATED = true  end
+    ToUpdate.CallbackNewVersion = function(NewVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."New Version found ("..NewVersion.."). Please wait until its downloaded then F9x2".."</font>") end
+    ToUpdate.CallbackError = function(NewVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."Error while Downloading. Please try again.".."</font>") end
+
     SxScriptUpdate(Version,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError)
 end
 function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptPath, SavePath, CallbackUpdate, CallbackNoUpdate, CallbackNewVersion,CallbackError)
