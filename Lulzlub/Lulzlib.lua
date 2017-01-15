@@ -1,6 +1,6 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .01
+    self.version = .02
 end
 
 function Log(message)
