@@ -32,8 +32,8 @@ function CheckUpdates(Version)
 	local ToUpdate = {}
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
-    ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
-    ToUpdate.ScriptPath =  "/Celtech/BOL/master/EzREAL/EzREAL.lua"
+    ToUpdate.VersionPath = "/Celtech/BOL/master/Orianna/version"
+    ToUpdate.ScriptPath =  "/Celtech/BOL/master/Orianna/Orianna.lua"
     ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
     ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) Log("Updated to v"..NewVersion) end
     ToUpdate.CallbackNoUpdate = function(OldVersion) Log("No Updates Found, loading version " .. Version)
