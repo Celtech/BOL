@@ -1,32 +1,7 @@
---[[
-    TODO:
-        Better combo logic
-        Rewrite orbwalker fetch method
-        Auto Heal
-        Heal to save ally
-        Defensive item usage
-        Fix Left click focus
-        Fix last hit / Mixed mode Q
-        Huamizer shit
-        Hit chance fix :)
-        Custom target selector?
-        Custom minion target selector?
-        E Logic
-        Base ult objects hit check
-        Auto thresh lantern grabber
-        Add Ezreal E to anti fail flash Logic
-        Blitz crank pull break with E
-        QSS Blitz pull
-        mana managment
-        Make updater look sexy
-        Make sure all menu items work...
-        Damage drawings
-        Multi language menu
-]]
-
 function OnLoad()
-    if myHero.charName ~= "Ezreal" or not (VIP_USER) then return end
-    local version = .07
+    local version = 0.02
+    CheckUpdatesLib()
+    CheckUpdates(version)
 
     Menu = scriptConfig("EzREAL As It Gets", "ezrealasitgets")
     Menu:addSubMenu("Drawing Menu", "Draw")
@@ -94,8 +69,6 @@ function OnLoad()
             Menu.Spell.MasteriesMenu:addParam("FerocityMasteries", "Ferocity Masteries", SCRIPT_PARAM_LIST, 1,{"None","Bounty Hunter","Double Edged Sword","Battle Trance"})
             Menu.Spell.MasteriesMenu:addParam("Merciless", "Merciless", 1, false)
             Menu.Spell.MasteriesMenu:addParam("Savagry", "Savagry", SCRIPT_PARAM_SLICE, 0, 0, 5, 0)
-    Menu:addSubMenu("Hotkeys Menu", "Hotkeys")
-        Menu.Hotkeys:addParam("ForceUlt", "Force Ult", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
     Menu:addSubMenu("Items Menu", "Items")
         Menu.Items:addSubMenu("Offensive Items", "OffensiveItems")
             Menu.Items.OffensiveItems:addParam("Enable", "Use items during", SCRIPT_PARAM_LIST, 3,{"Never","Combo","Combo+Harass"})
@@ -131,32 +104,38 @@ function OnLoad()
         Menu.General:addParam("Lane", "Get to lane faster", 1, true)
         Menu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
         Menu.General:addParam("Focus", "Left Click To Focus", SCRIPT_PARAM_LIST, 2, {"Never","For 1 Minute", "Until Removed"})
+    Menu:addSubMenu("Hotkeys Menu", "Hotkeys")
+        Menu.Hotkeys:addParam("ForceUlt", "Force Ult", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
+    Menu:addSubMenu("Orbwalker Menu", "Orbwalker")
+        Menu.Orbwalker:addParam("CustomKey", "Use Custom Combat Keys", SCRIPT_PARAM_ONOFF, false)
+        Menu.Orbwalker:setCallback("CustomKey", function(v)
+        	if v == true then
+        		Menu.Orbwalker:removeParam("Orbwalker")
+        		Menu.Orbwalker:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
+        		Menu.Orbwalker:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
+        		Menu.Orbwalker:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
+        		Menu.Orbwalker:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+        	elseif v == false then
+        		Menu.Orbwalker:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
+        		Menu.Orbwalker:removeParam("Combo")
+        		Menu.Orbwalker:removeParam("Harass")
+        		Menu.Orbwalker:removeParam("Laneclear")
+        		Menu.Orbwalker:removeParam("Lasthit")
+        	end
+    	end)
 
     Menu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
-    Menu:addParam("Mode", "Damage Mode", SCRIPT_PARAM_LIST, 1,{"AD","AP"})
     Menu:addParam("Packets", "Enable Packet Features", 1, true)
     Menu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Mastery","Joke","Taunt","Dance","Laugh"})
     Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulse Fire", "TPA", "Debonair", "Ace of Spades", "Arcade"})
 
-
-    local Title = Menu:permaShow("PlaceHolder")
-    Menu.permaShowEdit(Title, "lText", "EzREAL As It Gets")
-    Menu.permaShowEdit(Title, "rText", "v" .. tostring(version))
-
-    ComboModePermaShow = Menu.Draw:permaShow("PlaceHolder")
-    Menu.permaShowEdit(ComboModePermaShow, "lText", "Mode")
-    Menu.permaShowEdit(ComboModePermaShow, "rText", "None")
-    Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(100, 60, 60, 60))
-    Menu.General:permaShow("PlaceHolder")
-
-    CheckUpdates(version)
+    Orbwalker()
     Prediction()
-    Libraries()
+    CTargetSelector()
+    Ezreal()
     ItemsAndSummoners()
     Vip()
     AntiBaseUlt()
-    Ezreal()
-    Warding()
 end
 
 class "Ezreal"
@@ -172,156 +151,48 @@ function Ezreal:__init()
 
     self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.Q.range - 400, myHero, MINION_SORT_HEALTH_ASC)
 
-    AddTickCallback(function() self:Init() end)
+    AddTickCallback(function() self:OnTick() end)
     AddDrawCallback(function() self:OnDraw() end)
 end
-function Ezreal:Init()
-    if not myHero.dead and UPDATED and WALKERLOADED then
-        self.QState = myHero:CanUseSpell(_Q) == READY
-        self.WState = myHero:CanUseSpell(_W) == READY
-        self.EState = myHero:CanUseSpell(_E) == READY
-        self.RState = myHero:CanUseSpell(_R) == READY
-        self.manaPercent = myHero.mana / myHero.maxMana * 100
+function Ezreal:OnTick()
+    self.QState = myHero:CanUseSpell(_Q) == READY
+    self.WState = myHero:CanUseSpell(_W) == READY
+    self.EState = myHero:CanUseSpell(_E) == READY
+    self.RState = myHero:CanUseSpell(_R) == READY
+    self.manaPercent = myHero.mana / myHero.maxMana * 100
+    _G.Target = Orbwalker:GetOrbwalkerTarget()
 
-        if Libraries:ComboKey() then
-            self:Combo()
-        elseif Libraries:HarassKey() then
-            self:Mixed()
-        elseif Libraries:ClearKey() then
-            self:Laneclear()
-        else
-            Core:PermaShowModeSwitch(0)
-        end
-
-        self:KillSecure()
-        self:GetToLaneFaster()
-    end
+    self:Combo()
+    self:Harass()
+    self:GetToLaneFaster()
 end
 function Ezreal:OnDraw()
-    if not myHero.dead and UPDATED and WALKERLOADED then
+    local function ReturnColor(color) return ARGB(color[1],color[2],color[3],color[4]) end
+    if not myHero.dead then
         if Menu.Draw.AASettings.Enabled then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, Core:ReturnColor(Menu.Draw.AASettings.CircleColor), 100)
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, ReturnColor(Menu.Draw.AASettings.CircleColor), 100)
         end
         if Menu.Draw.QSettings.Enabled and self.QState or not Menu.Draw.QSettings.Hide then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, Core:ReturnColor(Menu.Draw.QSettings.CircleColor), 100)
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, ReturnColor(Menu.Draw.QSettings.CircleColor), 100)
         end
         if Menu.Draw.WSettings.Enabled and self.WState or not Menu.Draw.WSettings.Hide then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.range, 1, Core:ReturnColor(Menu.Draw.WSettings.CircleColor), 100)
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.range, 1, ReturnColor(Menu.Draw.WSettings.CircleColor), 100)
         end
         if Menu.Draw.ESettings.Enabled and self.EState or not Menu.Draw.ESettings.Hide then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.range, 1, Core:ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.range, 1, ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
         end
         if Menu.Draw.ESettings.Enabled and self.EState or not Menu.Draw.ESettings.Hide then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.maxRange, 1, Core:ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.maxRange, 1, ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
         end
         if Menu.Draw.RSettings.Enabled and self.RState or not Menu.Draw.RSettings.Hide then
-            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheck, 1, Core:ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
+            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheck, 1, ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
         end
         if Menu.Draw.DrawTarget then
             if Target ~= nil then
                 DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
             end
         end
-        --local t,i = Prediction:GetNumberOfObjectCollisions(D3DXVECTOR3(14340.418,171.9777,14391.075))
-        --DrawText(tostring(i),50,50,50,ARGB(255,255,0,0))
-        -- for i, snipeTarget in pairs(GetEnemyHeroes()) do
-        --     -- if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck then
-        --     --     DrawText("You can kill " .. snipeTarget.charName .. " With Ult, Hold T to Ult",50,50,50 * i + 5,ARGB(255,255,0,0))
-        --     -- end
-        --     DrawRectangle(self:GetAbilityFramePos(snipeTarget).x, self:GetAbilityFramePos(snipeTarget).y, 1, 10, ARGB(255,0,255,0))
-        --     DrawRectangle(self:GetAbilityFramePos(snipeTarget).x + 105, self:GetAbilityFramePos(snipeTarget).y, 1, 10, ARGB(255,0,255,0))
-        -- end
-
-        self:DamageDrawings()
     end
-end
-function Ezreal:Combo()
-    if Menu.Mode == 1 then
-        Core:PermaShowModeSwitch(1)
-        if ValidTarget(Target) then
-            if self.QState then
-                local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
-                if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.Q.range then
-                    if Info.collision ~= nil and not Info.collision or Info.collision == nil then
-                        CastSpell(_Q, CastPosition.x, CastPosition.z)
-                    end
-                end
-            end
-
-            if self.WState then
-                local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.W.delay, self.SpellTable.W.radius, self.SpellTable.W.range, self.SpellTable.W.speed, self.SpellTable.W.collision, self.SpellTable.W)
-                if CastPosition and HitChance >= Menu.Spell.WMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.W.range then
-                    CastSpell(_W, CastPosition.x, CastPosition.z)
-                end
-            end
-
-            if self.RState and self:UltDamage(Target) > Target.health and GetDistance(Target) < Menu.Spell.RMenu.ComboRangeCheck then
-                local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
-                if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.R.range then
-                    CastSpell(_R, CastPosition.x, CastPosition.z)
-                end
-            end
-        end
-    else
-        if IsWallOfGrass(myHero.pos) then
-            Core:PermaShowModeSwitch(2)
-            if ValidTarget(Target) then
-                if self.RState and GetDistance(Target) <= 2000 and self.EState and self.QState and self.WState then
-                    self:CastR()
-                end
-
-                if self.EState and GetDistance(Target) < self.SpellTable.E.maxRange and not self.RState then
-                    self:CastE(Target.x,Target.z)
-                end
-
-                if self.QState and not self.RState then
-                    self:CastQ()
-                end
-
-                if self.WState and not self.RState then
-                    self:CastW()
-                end
-            end
-        else
-            Core:PermaShowModeSwitch(1)
-        end
-    end
-end
-function Ezreal:Mixed()
-    Core:PermaShowModeSwitch(4)
-    if ValidTarget(Target) then
-        if Menu.Spell.QMenu.EnableHarass and self.manaPercent > Menu.Spell.QMenu.HarassMana then
-            self:CastQ()
-        end
-
-        if Menu.Spell.WMenu.EnableHarass and self.manaPercent > Menu.Spell.WMenu.HarassMana then
-            self:CastW()
-        end
-
-        if Menu.Spell.EMenu.Enable == 3 and self.manaPercent > Menu.Spell.EMenu.HarassMana and GetDistance(Target) > myHero.range + myHero.boundingRadius and GetDistance(Target) < myHero.range + myHero.boundingRadius + self.SpellTable.E.range then
-            self:CastE(Target.x, Target.z)
-        end
-    end
-end
-function Ezreal:Laneclear()
-    Core:PermaShowModeSwitch(3)
-end
-function Ezreal:KillSecure()
-    for i, snipeTarget in pairs(GetEnemyHeroes()) do
-        if self.RState == READY and self:UltDamage(snipeTarget) > snipeTarget.health and GetDistance(snipeTarget) < Menu.Spell.RMenu.RangeCheck and Menu.Hotkeys.ForceUlt then
-            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(snipeTarget, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
-            if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy and GetDistance(CastPosition) < self.SpellTable.R.range then
-                CastSpell(_R, CastPosition.x, CastPosition.z)
-            end
-        end
-    end
-end
-function Ezreal:UltDamage(unit)
-    local sLvl = myHero:GetSpellData(_R).level
-   if sLvl < 1 then return 0 end
-   local baseDmg = {350,500,650}
-   local trueDmg = baseDmg[sLvl] + (myHero.ap * .9) + (myHero.damage)
-   return math.floor(myHero:CalcMagicDamage(unit, trueDmg))
 end
 function Ezreal:GetToLaneFaster()
 	local function inCircle(cx,cz,x,z,r)
@@ -365,44 +236,48 @@ function Ezreal:CastR()
         CastSpell(_R, CastPosition.x, CastPosition.z)
     end
 end
-function Ezreal:GetAbilityFramePos(unit)
-	local barPos = GetUnitHPBarPos(unit)
-	local barOffset = GetUnitHPBarOffset(unit)
-	local t = {
-		["Darius"] = -0.05,
-		["Renekton"] = -0.05,
-		["Sion"] = -0.05,
-		["Thresh"] = 0.03,
-	}
-	barOffset.x = t[unit.charName] or 0
-
-	return Point(barPos.x - 67 + barOffset.x * 150, barPos.y + barOffset.y - 2)
+function Ezreal:UltDamage(unit)
+    local sLvl = myHero:GetSpellData(_R).level
+   if sLvl < 1 then return 0 end
+   local baseDmg = {350,500,650}
+   local trueDmg = baseDmg[sLvl] + (myHero.ap * .9) + (myHero.damage)
+   return math.floor(myHero:CalcMagicDamage(unit, trueDmg))
 end
-function Ezreal:DamageDrawings()
-    if ValidTarget(Target) then
-        if self.QState then self.QDamage = myHero:CalcMagicDamage(Target, (20*myHero:GetSpellData(_Q).level+15+.4*myHero.ap+1.1*myHero.totalDamage)) else self.QDamage = 0 end
-        if self.WState then self.WDamage = myHero:CalcMagicDamage(Target, (45*myHero:GetSpellData(_W).level+25+.8*myHero.ap)) else self.WDamage = 0 end
-        if self.EState then self.EDamage = myHero:CalcMagicDamage(Target, (50*myHero:GetSpellData(_E).level+25+.75*myHero.ap+.5*myHero.totalDamage)) else self.EDamage = 0 end
-        if self.RState then self.RDamage = myHero:CalcMagicDamage(Target, (350+(myHero:GetSpellData(_R).level - 1)*150+.9*myHero.ap+1*myHero.totalDamage)) else self.RDamage = 0 end
+function Ezreal:Combo()
+    if Orbwalker:IsFighting() then
+        if ValidTarget(Target) then
+            if self.QState then
+                self:CastQ()
+            end
 
-        self.targetHealthLocation = (Target.health) / Target.maxHealth * 106
-        self.targetHealthLocationDmg = (Target.health - (self.QDamage or 0 + self.WDamage or 0 + self.EDamage or 0 + self.RDamage or 0)) / Target.maxHealth * 106
+            if self.WState then
+                self:CastW()
+            end
 
-        --DrawRectangle(self:GetAbilityFramePos(Target).x, self:GetAbilityFramePos(Target).y, -1, 10, ARGB(255,0,255,0))
-        --DrawRectangle(self:GetAbilityFramePos(Target).x + self.targetHealthLocation, self:GetAbilityFramePos(Target).y, 1, 10, ARGB(255,0,255,0))
-        if self:GetAbilityFramePos(Target).x + self.targetHealthLocationDmg < self:GetAbilityFramePos(Target).x then
-            DrawRectangle(self:GetAbilityFramePos(Target).x, self:GetAbilityFramePos(Target).y, self.targetHealthLocation + 1, 10, ARGB(50,0,255,0))
-        else
-            DrawRectangle(self:GetAbilityFramePos(Target).x + self.targetHealthLocation + 1, self:GetAbilityFramePos(Target).y, self.targetHealthLocationDmg - self.targetHealthLocation, 10, ARGB(50,0,255,0))
+            if self.RState and self:UltDamage(Target) > Target.health and GetDistance(Target) < Menu.Spell.RMenu.ComboRangeCheck then
+                self:CastR()
+            end
         end
+    end
+end
+function Ezreal:Harass()
+    if Orbwalker:IsHarassing() then
+        if ValidTarget(Target) then
+            if self.QState and Menu.Spell.QMenu.EnableHarass then
+                self:CastQ()
+            end
 
+            if self.WState and Menu.Spell.WMenu.EnableHarass then
+                self:CastW()
+            end
+        end
     end
 end
 
 class "ItemsAndSummoners"
 function ItemsAndSummoners:__init()
     self.itemsAndSpells = {
-        ["Potions"] = {"RegenerationPotion","ItemCrystalFlask","ItemDarkCrystalFlask","ItemCrystalFlaskJungle"},
+        ["Potions"] = {"RegenerationPotion","ItemCrystalFlask","ItemDarkCrystalFlask","ItemCrystalFlaskJungle","ItemMiniRegenPotion"},
         ["OffensiveItems"] = {
             {"BilgewaterCutlass", 550, true},
             {"ItemSwordOfFeastAndFamine", 550, true},
@@ -427,10 +302,12 @@ function ItemsAndSummoners:__init()
         }
     }
     self.enemyHeroes = GetEnemyHeroes()
+    self.allyHeroes = GetAllyHeroes()
     self.lastTAttack = 0
     self.tDamage = 1
     self.lastRemove = 0
-    AddDrawCallback(function() self:OnDraw() end)
+    self.firstBuy = true
+
     AddLoadCallback(function() self:PrepSummonerSpells() end)
     AddTickCallback(function() self:OnTick() end)
     AddCastSpellCallback(function(iSpell, vStart, vEnd, target) self:FlashProtection(iSpell, vStart, vEnd, target) end)
@@ -455,7 +332,7 @@ function ItemsAndSummoners:PrepSummonerSpells()
         Menu.Spell.SummonerSpellsMenu:addParam("Ghost", "Use ghost to chase", SCRIPT_PARAM_LIST, 2, {"Never", "Optimal", "Aggressive"})
     end
     if self.itemsAndSpells.SummonerSpells.Flash then
-        Menu.Spell.SummonerSpellsMenu:addParam("Flash", "Block flash fails", 1, true)
+        Menu.Spell.SummonerSpellsMenu:addParam("Flash", "Block flash fails", 1, false)
     end
     if self.itemsAndSpells.SummonerSpells.Barrier then
         Menu.Spell.SummonerSpellsMenu:addParam("Barrier", "Use barrier", 1, true)
@@ -466,12 +343,14 @@ function ItemsAndSummoners:PrepSummonerSpells()
     end
 end
 function ItemsAndSummoners:OnTick()
-    if not myHero.dead and UPDATED and WALKERLOADED then
+    if not myHero.dead then
         self:UsePotion()
         self:HealToChase()
         self:AutoIgnite()
         self:UseItems()
         self:AutoLeveler()
+        self:AutoBuy()
+        self:AutoHeal()
     end
 end
 function ItemsAndSummoners:GetSlotItemFromName(itemname)
@@ -520,29 +399,12 @@ function ItemsAndSummoners:FlashProtection(iSpell, vStart, vEnd, target)
         end
     end
 end
-function ItemsAndSummoners:OnDraw()
-    -- local correctedMouse = myHero + (Vector(mousePos) - myHero):normalized() * 450
-    -- local correctedMouseD3d = D3DXVECTOR3(correctedMouse2.x,correctedMouse2.y,correctedMouse2.z)
-    -- if GetDistance(myHero, mousePos) > 450 then
-    --     if IsWall(correctedMouseD3d) then
-    --         DrawLine3D(myHero.x, myHero.y, myHero.z, correctedMouse.x, correctedMouse.y, correctedMouse.z, 1, ARGB(255,255,0,0))
-    --     else
-    --         DrawLine3D(myHero.x, myHero.y, myHero.z, correctedMouse.x, correctedMouse.y, correctedMouse.z, 1, ARGB(255,0,255,0))
-    --     end
-    -- else
-    --     if IsWall(mousePos) then
-    --         DrawLine3D(myHero.x, myHero.y, myHero.z, mousePos.x, mousePos.y, mousePos.z, 1, ARGB(255,255,0,0))
-    --     else
-    --         DrawLine3D(myHero.x, myHero.y, myHero.z, mousePos.x, mousePos.y, mousePos.z, 1, ARGB(255,0,255,0))
-    --     end
-    -- end
-end
 function ItemsAndSummoners:UsePotion()
     if not myHero.dead then
-        if Menu.Items.AutoPotion == 2 and Libraries:ComboKey() or Menu.Items.AutoPotion == 3 then
+        if Menu.Items.AutoPotion == 2 and Orbwalker:IsFighting() or Menu.Items.AutoPotion == 3 then
         	if os.clock() - self.itemsAndSpells.Cooldowns.LastPotion < 8 then return end
             if Menu.Items.HealthPercent >= (myHero.health / myHero.maxHealth * 100) then
-                for i = 1, 4 do
+                for i = 1, 5 do
                     if self:GetSlotItemFromName(self.itemsAndSpells.Potions[i]) ~= nil then
                         CastSpell(self:GetSlotItemFromName(self.itemsAndSpells.Potions[i]))
                 		self.itemsAndSpells.Cooldowns.LastPotion= os.clock()
@@ -599,21 +461,32 @@ function ItemsAndSummoners:ProtectFromTower(unit, spell)
 				self.tDamage = 1
 			end
 			self.lastTAttack = os.clock()
+            if self.itemsAndSpells.SummonerSpells.Heal then
+                if (myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == 0) and spell.target.isMe then
+    				local realDamage = unit.totalDamage / (((myHero.armor * 0.7) / 100) + 1)
 
-			if (myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == 0 or myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Barrier) == 0) and spell.target.isMe then
-				local realDamage = unit.totalDamage / (((myHero.armor * 0.7) / 100) + 1)
+    				if Prediction:GetPredictedHealth(myHero, 0.5) + myHero.shield <= realDamage * self.tDamage then
+    					DelayAction(function()
+    						CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
+                            Log("Saving you from tower")
+    					end, 0.5)
+    				end
+    			end
+            end
 
-				if Prediction:GetPredictedHealth(myHero, 0.5) + myHero.shield <= realDamage * self.tDamage then
-					DelayAction(function()
-                        if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Barrier) == 0 then
-						    CastSpell(self.itemsAndSpells.SummonerSpells.Barrier)
-                        elseif myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == 0 then
-						    CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
-                        end
-                        Core:Log("Saving you from tower")
-					end, 0.5)
-				end
-			end
+            if self.itemsAndSpells.SummonerSpells.Barrier then
+                if (myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Barrier) == 0) and spell.target.isMe then
+    				local realDamage = unit.totalDamage / (((myHero.armor * 0.7) / 100) + 1)
+
+    				if Prediction:GetPredictedHealth(myHero, 0.5) + myHero.shield <= realDamage * self.tDamage then
+    					DelayAction(function()
+    						CastSpell(self.itemsAndSpells.SummonerSpells.Barrier)
+                            Log("Saving you from tower")
+    					end, 0.5)
+    				end
+    			end
+            end
+
 		end
 	end
 end
@@ -635,7 +508,7 @@ function ItemsAndSummoners:HealToChase()
     			local ourMS, targetMS = myHero.ms,Target.ms
     			local adDamage = myHero:CalcDamage(Target, myHero.totalDamage)
 
-    			if Libraries:ComboKey() then
+    			if Orbwalker:IsFighting() then
     				local r = myHero.range+65
     				local trange = r < 575 and r or 575
     				if self:isFleeingFromMe(Target, trange) and self:CalcDist(Target) then
@@ -649,6 +522,25 @@ function ItemsAndSummoners:HealToChase()
     				end
     			end
     		end
+        end
+	end
+end
+function ItemsAndSummoners:AutoHeal()
+	if self.itemsAndSpells.SummonerSpells.Heal and Menu.Spell.SummonerSpellsMenu.Heal then
+        if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == READY then
+    		if myHero.health / myHero.maxHealth * 100 <= Menu.Spell.SummonerSpellsMenu.HealthPercent then
+                CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
+            end
+
+            if Menu.Spell.SummonerSpellsMenu.HealAlly then
+                for i,ally in pairs(self.allyHeroes) do
+                    if GetDistance(ally) <= 850 then
+                        if ally.health / ally.maxHealth * 100 <= Menu.Spell.SummonerSpellsMenu.HealthPercent then
+                            CastSpell(self.itemsAndSpells.SummonerSpells.Heal)
+                        end
+                    end
+                end
+            end
         end
 	end
 end
@@ -739,291 +631,20 @@ function ItemsAndSummoners:AutoLeveler()
         autoLevelSetSequence(self.abilitySequence[Menu.General.Level.Sequence])
 	end
 end
-
-class "Libraries"
-function Libraries:__init()
-    self.enemyHeroes = GetEnemyHeroes()
-    self.sendOnce = true
-    ORBWALKER = nil
-    WALKERLOADED = false
-    AddTickCallback(function() self:OnOrbwalker() end)
-    AddTickCallback(function() self:Targeting() end)
-    AddTickCallback(function() self:FocusTarget() end)
-    AddDrawCallback(function() self:DrawFocus() end)
-    AddMsgCallback(function(m,k) self:OnWndMsg(m,k) end)
-end
-function Libraries:OnOrbwalker()
-    if WALKERLOADED == false then
-    	if _G.MMA_IsLoaded  ~= nil then
-    		Core:Log("MMA Detected!")
-    		Menu.Hotkeys:addParam("OrbWalker", "MMA, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-    		ORBWALKER = "mma"
-    		WALKERLOADED = true
-        elseif _G.SAC ~= nil then
-    		Core:Log("SAC:P Detected")
-    		Menu.Hotkeys:addParam("OrbWalker", "SAC:P, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-    		ORBWALKER = "sacp"
-    		WALKERLOADED = true
-    	elseif _G.AutoCarry ~= nil and _G.Reborn_Loaded and _G.Reborn_Initialised then
-    		Core:Log("SAC:R Detected")
-    		Menu.Hotkeys:addParam("OrbWalker", "SAC:R, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-    		ORBWALKER = "sacr"
-    		WALKERLOADED = true
-    	elseif _G._Pewalk ~= nil then
-    		Core:Log("Pewalk Detected")
-    		Menu.Hotkeys:addParam("OrbWalker", "PEWalk, Hoykeys are in your OrbWalker!", SCRIPT_PARAM_INFO, "")
-    		ORBWALKER = "pew"
-    		WALKERLOADED = true
-        end
-    end
-end
-function Libraries:ComboKey()
-	--if not Menu.hotkeys.checkhk then
-		if ORBWALKER == "sx" then
-			return SxOrb.isFight
-		elseif ORBWALKER == "sacp" then
-			return _G.AutoCarry.Keys.AutoCarry
-        elseif ORBWALKER == "sacr" then
-			return _G.AutoCarry.Keys.AutoCarry
-		elseif ORBWALKER == "pew" then
-			return _G._Pewalk.GetActiveMode().Carry
-		elseif ORBWALKER == "now" then
-			return _G.NebelwolfisOrbWalker.Config.k.Combo
-		elseif ORBWALKER == "mma" then
-			return _G.MMA_IsOrbwalking()
-		end
-	--end
-end
-function Libraries:HarassKey()
-    if ORBWALKER == "sx" then
-		return SxOrb.isHarass
-	elseif ORBWALKER == "sacp" then
-		return _G.AutoCarry.Keys.MixedMode
-    elseif ORBWALKER == "sacr" then
-		return _G.AutoCarry.Keys.MixedMode
-	elseif ORBWALKER == "pew" then
-		return _G._Pewalk.GetActiveMode().Mixed
-	elseif ORBWALKER == "now" then
-		return _G.NebelwolfisOrbWalker.Config.k.Harass
-	elseif ORBWALKER == "mma" then
-		return _G.MMA_IsDualCarrying()
-	end
-end
-function Libraries:ClearKey()
-	if ORBWALKER == "sacp" then
-		return _G.AutoCarry.Keys.LaneClear
-    elseif ORBWALKER == "sacr" then
-		return _G.AutoCarry.Keys.LaneClear
-	elseif ORBWALKER == "pew" then
-		return _G._Pewalk.GetActiveMode().LaneClear
-	elseif ORBWALKER == "mma" then
-		return _G.MMA_IsLaneClearing()
-	end
-end
-function Libraries:Targeting()
-    if WALKERLOADED then
-        if SelectedTarget ~= nil and GetDistance(SelectedTarget) < 1500 and not SelectedTarget.dead then
-    		Target = SelectedTarget
-    	else
-    		if ORBWALKER == "sacp" then
-                Target = _G.SAC:GetTarget()
-            elseif ORBWALKER == "sacr" then
-                _G.AutoCarry.Crosshair:SetSkillCrosshairRange(1200)
-                Target = _G.AutoCarry.SkillsCrosshair.target
-    		elseif ORBWALKER == "now" then
-    			Target = _G.NebelwolfisOrbWalker:GetTarget()
-    		elseif ORBWALKER == "pew" then
-    			Target = _G._Pewalk.GetTarget()
-    		elseif ORBWALKER == "sx" then
-    			Target = _G.SxOrb:EnableAttacks()
-    		elseif ORBWALKER == "mma" then
-    			Target = _G.MMA_Target()
-    		end
-    	end
-    end
-end
-function Libraries:ClosestEnemy(pos)
-	if pos == nil then return math.huge, nil end
-	local closestEnemy, distanceEnemy = nil, math.huge
-
-	for i=1, #self.enemyHeroes do
-		if not self.enemyHeroes[i].dead then
-			if GetDistance(pos, self.enemyHeroes[i]) < distanceEnemy then
-				distanceEnemy = GetDistance(pos, self.enemyHeroes[i])
-				closestEnemy = self.enemyHeroes[i]
-			end
+function ItemsAndSummoners:AutoBuy()
+    if Menu.General.Buy.StartingItems then
+		if myHero.level <= 1 and self.firstBuy and InFountain() then
+			BuyItem(1055)
+            BuyItem(2003)
+            BuyItem(3340)
+			self.firstBuy = false
 		end
 	end
 
-	return closestEnemy, distanceEnemy
-end
-function Libraries:OnWndMsg(msg,key)
-	if msg == WM_LBUTTONDOWN then
-		local enemy, distance = self:ClosestEnemy(mousePos)
-
-		if distance < 150 then
-			if SelectedTarget and SelectedTarget.charName == enemy.charName then
-				SelectedTarget = nil
-			else
-				SelectedTarget = enemy
-			end
+	if Menu.General.Buy.TrinketSwitch then
+		if myHero.level >= 9 and myHero:GetSpellData(ITEM_7).name ~= "TrinketOrbLvl3" and InFountain() then
+			BuyItem(3363)
 		end
-	end
-end
-function Libraries:FocusTarget()
-	if Menu.General.Focus > 1 then
-		if self.sendOnce and Menu.General.Focus == 2 then
-			DelayAction(function()
-				if SelectedTarget ~= nil then
-					SelectedTarget = nil
-					self.sendOnce = true
-				end
-			end, 90)
-			self.sendOnce = false
-		end
-	end
-end
-function Libraries:DrawFocus()
-    if SelectedTarget ~= nil and not SelectedTarget.dead then
-        if not self.rot then
-    		self.rot = 0
-    	end
-    	self.rot = self.rot + 0.002
-    	if self.rot > 6.28318 then
-    		self.rot = 0
-    	end
-        self:DrawTriangle3D(SelectedTarget, ARGB(255,255,0,0), 1, 100,5, 0,0, 0)
-    end
-end
-function Libraries:a2v ( a, m )
-  m = m or 1
-  local x = math.cos ( a ) * m
-  local y = math.sin ( a ) * m
-  return x, y
-end
-function Libraries:DrawTriangle3D(object, color, thickness, size, speed, yshift, ylevel, height)
-	local pi = 3.14159
-	if not object then object = myHero end
-	if not color then color = ARGB(255,255,255,255) end
-	if not thickness then thickness = 3 end
-	if not size then size = 50 end
-	if not speed then speed = 1 else speed = 1-speed end
-	local X, Y, Z = object.x, object.y, object.z
-	Y = Y + yshift + (self.rot * ylevel)
-	local RX1, RZ1 = self:a2v((self.rot*speed), size)
-	local RX2, RZ2 = self:a2v((self.rot*speed)+pi*0.3333, size)
-	local RX3, RZ3 = self:a2v((self.rot*speed)+pi*0.6666, size)
-	local PX1 = X+RX1
-	local PZ1 = Z+RZ1
-	local PX2 = X+RX2
-	local PZ2 = Z+RZ2
-	local PX3 = X+RX3
-	local PZ3 = Z+RZ3
-	local PXT1 = X-(PX1-X)
-	local PZT1 = Z-(PZ1-Z)
-	local PXT3 = X-(PX3-X)
-	local PZT3 = Z-(PZ3-Z)
-
-	DrawLine3D(PXT1, Y, PZT1, PXT3, Y, PZT3, thickness, color)
-	DrawLine3D(PXT3, Y, PZT3, PX2, Y, PZ2, thickness, color)
-	DrawLine3D(PX2, Y, PZ2, PXT1, Y, PZT1, thickness, color)
-
-	local nY = Y + height
-	DrawLine3D(PXT1, nY, PZT1, PXT3, nY, PZT3, thickness, color)
-	DrawLine3D(PXT3, nY, PZT3, PX2, nY, PZ2, thickness, color)
-	DrawLine3D(PX2, nY, PZ2, PXT1, nY, PZT1, thickness, color)
-
-	DrawLine3D(PXT1, Y, PZT1, PXT1, nY, PZT1, thickness, color)
-	DrawLine3D(PXT3, Y, PZT3, PXT3, nY, PZT3, thickness, color)
-	DrawLine3D(PX2, Y, PZ2, PX2, nY, PZ2, thickness, color)
-end
-
-class "Core"
-function Core:ReturnColor(color)
-    return ARGB(color[1],color[2],color[3],color[4])
-end
-function Core:Log(message)
-    print("<font color='#ff0000'></b>[EzREAL] </b></font><font color='#00ff00'>"..message.."</font>")
-end
-function Core:PermaShowModeSwitch(mode)
-    if mode == 0 then
-        Menu.permaShowEdit(ComboModePermaShow, "rText", "None")
-        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(100, 60, 60, 60))
-    elseif mode == 1 then
-        Menu.permaShowEdit(ComboModePermaShow, "rText", "Normal")
-        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(185, 0, 165, 80))
-    elseif mode == 2 then
-        Menu.permaShowEdit(ComboModePermaShow, "rText", "Burst Delete")
-        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(185, 165, 0, 80))
-    elseif mode == 3 then
-        Menu.permaShowEdit(ComboModePermaShow, "rText", "Lane Clear")
-        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(185, 0, 80, 165))
-    elseif mode == 4 then
-        Menu.permaShowEdit(ComboModePermaShow, "rText", "Harass")
-        Menu.permaShowEdit(ComboModePermaShow, "rBgColor", ARGB(185, 80, 0, 165))
-    end
-end
-
-class "Warding"
-function Warding:__init()
-    self.enemies = {}
-    self.tick = 0
-
-    for _, k in pairs(GetEnemyHeroes()) do
-        self.enemies[k.networkID] = {k.visible, Vector(k), os.clock() + 1, Vector(k.path:Path(2))}
-    end
-
-    AddTickCallback(function() self:SightWard(self.enemies, self.tick) end)
-end
-function Warding:SightWard(enemies, tick)
-	if Menu.Items.Warding.Enable == 3 or Menu.Items.Warding.Enable == 2 and Keys:ComboKey() then
-		tick = os.clock()+0.125
-		for _, k in pairs(GetEnemyHeroes()) do
-			if enemies[k.networkID][1] and not k.visible and not k.dead and enemies[k.networkID][3] >= os.clock() and GetDistance(k) < (myHero.range + myHero.boundingRadius+50) then
-				local pos = enemies[k.networkID][2]
-				local dir = (enemies[k.networkID][4] - enemies[k.networkID][2]):normalized()
-				for _=150, 600 do
-					local ppos = pos + dir * _
-					if IsWallOfGrass(D3DXVECTOR3(ppos.x,ppos.y,ppos.z)) then
-						self:CastWard(ppos)
-						enemies[k.networkID][3] = 0
-					end
-				end
-			else
-				if k.visible and not k.dead then
-					enemies[k.networkID] = {k.visible, Vector(k), os.clock() + 1, Vector(k.path:Path(2))}
-				end
-			end
-		end
-	end
-end
-function Warding:GetSlotItemFromName(itemname)
-	local slot
-	for i = 6, 12 do
-		local item = myHero:GetSpellData(i).name
-		if ((#item > 0) and (item:lower():find(itemname:lower()))) then
-			slot = i
-		end
-	end
-	return slot
-end
-function Warding:CastWard(wardPos)
-	if self:GetSlotItemFromName("ItemGhostWard") and GetInventoryItemIsCastable(myHero:getInventorySlot(self:GetSlotItemFromName("ItemGhostWard"))) then
-		wardslot = self:GetSlotItemFromName("ItemGhostWard")
-	end
-
-	if self:GetSlotItemFromName("TrinketOrbLvl3") and GetInventoryItemIsCastable(myHero:getInventorySlot(self:GetSlotItemFromName("TrinketOrbLvl3")))  then
-		wardslot = self:GetSlotItemFromName("TrinketOrbLvl3")
-	end
-
-	if self:GetSlotItemFromName("TrinketTotemLvl1") and GetInventoryItemIsCastable(myHero:getInventorySlot(self:GetSlotItemFromName("TrinketTotemLvl1"))) then
-		wardslot = self:GetSlotItemFromName("TrinketTotemLvl1")
-	end
-
-	if wardslot then
-		DelayAction(function()
-			CastSpell(wardslot, wardPos.x, wardPos.z)
-		end, Menu.Items.Warding.Delay/1000)
 	end
 end
 
@@ -1031,61 +652,8 @@ class "Vip"
 function Vip:__init()
 	self.killCount = myHero.kills
     self.lastSkin = 0
-    self.firstBuy = true
     self.gameVersion = GetGameVersion():sub(1,10)
-    self.packets = {
-        ["6.24.169.4"] = {
-            ["Items"] = {
-                ["Header"] = 0x0040,
-                ["VTable"] = 0xF87750,
-                ["Packets"] = {0x8D, 0x12},
-                ["ID"] = {
-                    ["Health Potion"] = {0x00C6,0x000A},
-            		["Warding Totem (Trinket)"] = {0x000F,0x001F},
-            		["Doran's Blade"] = {0x0000,0x0016},
-            		["Blue Trinket"] = {0x0004,0x001F}
-                }
-            },
-            ["Emotes"] = {
-                ["Header"] = 0x007C,
-                ["VTable"] = 0x103DB18,
-                ["ID"] = {0x11,0x31,0x21,0x01}
-            },
-            ["Mastery"] = {
-                ["Header"] = 0x000A,
-                ["VTable"] = 0x1075A24,
-                ["Packets"] = {0x5D},
-            },
-            ['Recall'] = {
-                ['Header'] = 0x00BB,
-                ['pos'] = 31,
-                ['stringPos'] = 6,
-                ['tpPos'] = 22,
-                ['isTP'] = 0x08,
-                ['bytes'] = {
-                    [0x9C] = 0x00,
-                    [0x9D] = 0x40,
-                    [0x04] = 0x1A,
-                    [0x00] = 0x1B,
-                    [0x0C] = 0x1C,
-                    [0x08] = 0x1D,
-                    [0x14] = 0x1E,
-                    [0x10] = 0x1F,
-                    [0x1C] = 0x20,
-                    [0x18] = 0x21,
-                    [0xE5] = 0x22,
-                    [0xE1] = 0x23,
-                    [0x5D] = 0x11,
-                    [0x24] = 0x12,
-                    [0x20] = 0x13,
-                    [0x2C] = 0x14,
-                    [0x28] = 0x15,
-                    [0x34] = 0x16,
-                },
-            }
-        }
-    }
-    self.lshift, self.band, self.bxor = bit32.lshift, bit32.band, bit32.bxor
+
     self.recallTimes = {
         ['recall'] = 8,
         ['odinrecall'] = 4.5,
@@ -1100,44 +668,17 @@ function Vip:__init()
         D3DXVECTOR3(14340.418,171.9777,14391.075)
     }
 
-	if self.packets[self.gameVersion] ~= nil then
+	if _G.Lulzlib.packets[self.gameVersion] ~= nil then
         AddRecvPacketCallback2(function(p) self:BaseUltRecvPacket(p) end)
         AddDrawCallback(function() self:BaseUltOnDraw() end)
         AddTickCallback(function() self:OnTick() end)
     end
 end
 function Vip:OnTick()
-    if not myHero.dead and UPDATED and WALKERLOADED and Menu.Packets then
-        self:AutoBuy()
-        self:TauntOnKill()
+    if not myHero.dead and Menu.Packets then
         self:SkinChanger()
         self:BaseUltDoUlt()
     end
-end
-function Vip:TauntOnKill()
-	if myHero.kills > self.killCount then
-		if Menu.Taunt == 2 then
-			self:SendMastery()
-		elseif Menu.Taunt > 2 then
-			self:SendEmote(Menu.Taunt - 2)
-		end
-
-		self.killCount = myHero.kills
-	end
-end
-function Vip:SendEmote(id)
-	local p = CLoLPacket(self.packets[self.gameVersion].Emotes.Header)
-	p.vTable = self.packets[self.gameVersion].Emotes.VTable
-    p:EncodeF(myHero.networkID)
-	p:Encode1(self.packets[self.gameVersion].Emotes.ID[id])
-	SendPacket(p)
-end
-function Vip:SendMastery()
-	local p = CLoLPacket(self.packets[self.gameVersion].Mastery.Header)
-	p.vTable = self.packets[self.gameVersion].Mastery.VTable
-	p:EncodeF(myHero.networkID)
-	for i = 1, 4 do p:Encode1(self.packets[self.gameVersion].Mastery.Packets[1]) end
-	SendPacket(p)
 end
 function Vip:SkinChanger()
     if self.lastSkin ~= Menu.Skins then
@@ -1145,47 +686,22 @@ function Vip:SkinChanger()
         SetSkin(myHero, Menu.Skins - 1)
     end
 end
-function Vip:BuyItem(Item)
-   local p = CLoLPacket(self.packets[self.gameVersion].Items.Header)
-   p.vTable = self.packets[self.gameVersion].Items.VTable
-   p:EncodeF(myHero.networkID)
-   p:Encode1(self.packets[self.gameVersion].Items.Packets[1])
-   p:Encode1(self.packets[self.gameVersion].Items.ID[Item][1])
-   p:Encode1(self.packets[self.gameVersion].Items.ID[Item][2])
-   for i = 1, 2 do p:Encode1(self.packets[self.gameVersion].Items.Packets[2]) end
-   SendPacket(p)
-end
-function Vip:AutoBuy()
-	if Menu.General.Buy.StartingItems then
-		if myHero.level <= 1 and self.firstBuy and InFountain() then
-			self:BuyItem("Doran's Blade")
-			self:BuyItem("Health Potion")
-			self:BuyItem("Warding Totem (Trinket)")
-			self.firstBuy = false
-		end
-	end
-
-	if Menu.General.Buy.TrinketSwitch then
-		if myHero.level >= 9 and myHero:GetSpellData(ITEM_7).name ~= "TrinketOrbLvl3" and InFountain() then
-			self:BuyItem("Blue Trinket")
-		end
-	end
-end
 function Vip:BaseUltRecvPacket(p)
-	if p.header == self.packets[self.gameVersion].Recall.Header then
-		p.pos = self.packets[self.gameVersion].Recall.pos
-		local bytes = {}
+	if p.header == _G.Lulzlib.packets[self.gameVersion].Recall.Header then
+		p.pos = _G.Lulzlib.packets[self.gameVersion].Recall.pos
+        local ptemp = CLoLPacket(0x00)
 		for i=4, 1, -1 do
-			bytes[i] = self.packets[self.gameVersion].Recall.bytes[p:Decode1()] or 0
+            ptemp:Encode1(_G.Lulzlib.packets[self.gameVersion].Recall.bytes[p:Decode1()])
 		end
-		local netID = self.bxor(self.lshift(self.band(bytes[1],0xFF),24),self.lshift(self.band(bytes[2],0xFF),16),self.lshift(self.band(bytes[3],0xFF),8),self.band(bytes[4],0xFF))
-		local o = objManager:GetObjectByNetworkId(DwordToFloat(netID))
+        ptemp.pos = ptemp.pos - 4
+		local o = objManager:GetObjectByNetworkId(ptemp:DecodeF())
+
 		if o and o.valid and o.type == 'AIHeroClient' and o.team == TEAM_ENEMY then
-			p.pos = self.packets[self.gameVersion].Recall.tpPos
-			local isTP = p:Decode1() == self.packets[self.gameVersion].Recall.isTP
+			p.pos = _G.Lulzlib.packets[self.gameVersion].Recall.tpPos
+			local isTP = p:Decode1() == _G.Lulzlib.packets[self.gameVersion].Recall.isTP
 			local str = ''
 			if not isTP then
-				p.pos=self.packets[self.gameVersion].Recall.stringPos
+				p.pos=_G.Lulzlib.packets[self.gameVersion].Recall.stringPos
 				for i=1, p.size do
 					local b = p:Decode1()
 					if b == 0 then break end
@@ -1196,7 +712,7 @@ function Vip:BaseUltRecvPacket(p)
 			end
 			if self.recallTimes[str:lower()] then
                 if Menu.General.Verbose then
-                    Core:Log(o.charName .. " is recalling")
+                    Log(o.charName .. " is recalling")
                 end
 				self.ActiveRecalls[o.networkID] = {
 					name = o.charName,
@@ -1211,10 +727,9 @@ function Vip:BaseUltRecvPacket(p)
 				return
 			elseif self.ActiveRecalls[o.networkID] then
                 if Menu.General.Verbose and os.clock() - self.ActiveRecalls[o.networkID].endT >= -0.01  then
-                    Core:Log(o.charName .. " recalled")
+                    Log(o.charName .. " recalled")
                 elseif Menu.General.Verbose then
-                    print(os.clock() - (self.ActiveRecalls[o.networkID].startT + 8))
-                    Core:Log(o.charName .. " cancled recall")
+                    Log(o.charName .. " cancled recall")
                 end
 				self.ActiveRecalls[o.networkID] = nil
 
@@ -1261,10 +776,12 @@ function Vip:BaseUltProgressBar(x, y, percent, text, tick)
     DrawText(text,20,y + 8,x + 5,ARGB(255,255,255,255))
 end
 function Vip:BaseUltPredictIfUltCanKill(target)
-    if Ezreal:UltDamage(target.object) > target.startHP + (target.hpRegen * 7.9)  then
-        return true
-    else
-        return false
+    if myHero.charName == "Ezreal" or myHero.charName == "Jinx" or myHero.charName == "Draven" or myHero.charName == "Ashe" then
+        if Ezreal:UltDamage(target.object) > target.startHP + (target.hpRegen * 7.9)  then
+            return true
+        else
+            return false
+        end
     end
 end
 
@@ -1332,7 +849,7 @@ function AntiBaseUlt:OnCreateObj(object)
 	end
 
 	myHero:MoveTo(1 + myHero.x, 1 + myHero.z)
-	Core:Log("Saving you from " .. object.spellOwner.charName .. " BaseUlt")
+	Log("Saving you from " .. object.spellOwner.charName .. " BaseUlt")
 end
 function AntiBaseUlt:IsLineCircleIntersection(circle, radius, v1, v2)
     local ToLineEnd = v2 - v1
@@ -1344,6 +861,49 @@ function AntiBaseUlt:IsLineCircleIntersection(circle, radius, v1, v2)
 	local D = circle - Closest
 	local Dist = (D.x * D.x) + (D.y * D.y)
 	return Dist <= radius * radius
+end
+
+class "CTargetSelector"
+function CTargetSelector:__init()
+    CTargetSelector.enemyHeros = GetEnemyHeroes()
+    CTargetSelector.championTable = {
+        [1] = {"Alistar", "Braum", "DrMundo", "Galio", "Garen", "Leona", "Nautilus", "Shen", "Singed", "Sion", "Poppy", "Rammus", "Skarner", "Tahm Kench", "Taric", "Thresh", "Zac"},
+        [2] = {"Aatrox", "Amumu", "Blitzcrank", "Darius", "Gnar", "Gragas", "Illaoi", "Ivern", "Janna", "Kled", "Malphite", "Maokai", "Nami", "Nasus", "Nunu", "Olaf", "Sejuani", "Shyvana", "RekSai", "Renekton", "Swain", "Trundle", "Udyr", "Urgot", "Volibear", "Yorick"},
+        [3] = {"Akali", "Anivia", "Bard", "ChoGath", "Ekko", "Elise", "Fiora", "Gangplank", "Hecarim", "Heimerdinger", "Irelia", "JarvanIV", "Jax", "Jayce", "Kassadin", "Kayle", "Lee Sin", "Lissandra", "Lulu", "Mordekaiser", "Morgana", "Nidalee", "Pantheon", "Sona", "Taliyah", "Tryndamere", "Vi", "Vladimir", "Warwick", "Wukong", "XinZhao", "Zilean", "Zyra"},
+        [4] = {"Ahri", "Annie", "Aurelion Sol", "Azir", "Camille", "Cassiopeia", "Corki", "Diana", "Evelynn", "Fiddlesticks", "Fizz", "Graves", "Karma", "Karthus", "Katarina", "Kennen", "Kindred", "LeBlanc", "Lux", "Malzahar", "Nocturne", "Orianna", "Ryze", "Shaco", "Riven", "Rengar", "Syndra", "Soraka", "Talon", "Twisted Fate", "Veigar", "VelKoz","Viktor", "Xerath", "Zed", "Ziggs"},
+        [5] = {"Ashe", "Brand", "Caitlyn", "Draven", "Ezreal", "Jhin", "Jinx", "Kalista", "KhaZix", "KogMaw", "Lucian", "Master Yi", "Miss Fortune", "Quinn", "Sivir", "Teemo", "Tristana", "Twitch", "Varus", "Vayne", "Yasuo"},
+    }
+
+    Menu:addSubMenu("Target Selection Menu", "Targeting")
+    for i, enemy in pairs(self.enemyHeros) do
+        local priorityValue = 1
+        for i = 1, 5 do
+            for key, value in pairs(self.championTable[i]) do
+                if string.lower(value) == string.lower(enemy.charName) then
+                    priorityValue = i
+                end
+            end
+        end
+
+        Menu.Targeting:addParam(enemy.charName, enemy.charName, SCRIPT_PARAM_SLICE, priorityValue, 1, 5, 0)
+    end
+    Menu.Targeting:addParam("TargetingInfo", "1 = Low Priority, 5 = Max Priority(You will focus first)", SCRIPT_PARAM_INFO, "")
+    Menu.Targeting:addParam("TargetingInfo2", "", SCRIPT_PARAM_INFO, "")
+    Menu.Targeting:addParam("Method", "Target Selection Method", SCRIPT_PARAM_LIST, 1,{"NearMouse", "Priority", "LowHPPriority", "LessCastPriority", "Closest" })
+end
+function CTargetSelector:GetTarget()
+    local selectedTarget = nil
+    local targetSeed = math.huge
+
+    for i, enemy in pairs(self.enemyHeros) do
+        if GetDistanceSqr(enemy) <= ((myHero.range + myHero.boundingRadius) * (myHero.range + myHero.boundingRadius)) then
+            if ((enemy.health + enemy.armor) - (enemy.totalDamage * 2 + enemy.ap)) / Menu.Targeting[enemy.charName] < targetSeed then
+                targetSeed = ((enemy.health + enemy.armor) - (enemy.totalDamage * 2 + enemy.ap)) / Menu.Targeting[enemy.charName]
+                selectedTarget = enemy
+            end
+        end
+    end
+    return selectedTarget
 end
 
 class "Prediction"
@@ -1417,23 +977,180 @@ function Prediction:GetNumberOfObjectCollisions(endPos)
     end
 end
 
+class "Orbwalker"
+function Orbwalker:__init()
+    local orbwalker = nil
+    local sxLoaded = false
+    AddLoadCallback(function() self:LoadSXOrb() end)
+    AddTickCallback(function() self:Findwalker() end)
+end
+function Orbwalker:LoadSXOrb()
+    if FileExist(LIB_PATH.."SxOrbWalk.lua") then
+        DelayAction(function()
+            require "SxOrbWalk"
+            SxOrb:LoadToMenu(Menu.Orbwalker)
+            sxLoaded = true
+        end, 2)
+    else
+        DownloadSXOrb()
+    end
+end
+function Orbwalker:Findwalker()
+    if orbwalker ~= nil then return end
+
+    if _G.MMA_IsLoaded  ~= nil then
+        orbwalker = "MMA"
+        self:DisableSXOrb()
+	elseif _G.AutoCarry ~= nil and _G.Reborn_Loaded and _G.Reborn_Initialised then
+        orbwalker = "SAC:R"
+        self:DisableSXOrb()
+	elseif _G._Pewalk ~= nil then
+        orbwalker = "PEWalk"
+        self:DisableSXOrb()
+    end
+end
+function Orbwalker:DisableSXOrb()
+    DelayAction(function()
+        Log(orbwalker.." Detected. Disabling SXOrbWalker")
+        for i = 1, 6 do
+            Menu.Orbwalker:clear(true,true)
+        end
+
+        SxOrb:DisableAttacks()
+        SxOrb:DisableMove()
+        SxOrb.menu.general.enabled = false
+
+        Menu.Orbwalker:addParam("CustomKey", "Use Custom Combat Keys", SCRIPT_PARAM_ONOFF, false)
+        Menu.Orbwalker:setCallback("CustomKey", function(v)
+        	if v == true then
+        		Menu.Orbwalker:removeParam("Orbwalker")
+        		Menu.Orbwalker:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
+        		Menu.Orbwalker:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
+        		Menu.Orbwalker:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
+        		Menu.Orbwalker:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+        	elseif v == false then
+        		Menu.Orbwalker:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
+        		Menu.Orbwalker:removeParam("Combo")
+        		Menu.Orbwalker:removeParam("Harass")
+        		Menu.Orbwalker:removeParam("Laneclear")
+        		Menu.Orbwalker:removeParam("Lasthit")
+        	end
+    	end)
+        Menu.Orbwalker:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
+    end, 2)
+end
+function Orbwalker:IsFighting()
+    if not Menu.Orbwalker.CustomKey then
+        if orbwalker == "SAC:R" then
+            return _G.AutoCarry.Keys.AutoCarry
+        elseif orbwalker == "MMA" then
+            return _G.MMA_IsOrbwalking()
+        elseif orbwalker == "PEWalk" then
+            return _G._Pewalk.GetActiveMode().Carry
+        elseif orbwalker == nil then
+            if sxLoaded then return _G.SxOrb.isFight end
+        end
+    else
+        return Menu.Orbwalker.Combo
+    end
+end
+function Orbwalker:IsHarassing()
+    if not Menu.Orbwalker.CustomKey then
+        if orbwalker == "SAC:R" then
+            return _G.AutoCarry.Keys.MixedMode
+        elseif orbwalker == "MMA" then
+            return _G.MMA_IsDualCarrying()
+        elseif orbwalker == "PEWalk" then
+            return _G._Pewalk.GetActiveMode().Mixed
+        elseif orbwalker == nil then
+            if sxLoaded then return _G.SxOrb.isHarass end
+        end
+    else
+        return Menu.Orbwalker.Harass
+    end
+end
+function Orbwalker:IsLaneClearing()
+    if not Menu.Orbwalker.CustomKey then
+        if orbwalker == "SAC:R" then
+            return _G.AutoCarry.Keys.LaneClear
+        elseif orbwalker == "MMA" then
+            return _G.MMA_IsLaneClearing()
+        elseif orbwalker == "PEWalk" then
+            return _G._Pewalk.GetActiveMode().LaneClear
+        elseif orbwalker == nil then
+            if sxLoaded then return _G.SxOrb.isLaneClear end
+        end
+    else
+        return Menu.Orbwalker.LaneClear
+    end
+end
+function Orbwalker:GetOrbwalkerTarget()
+    if orbwalker == "SAC:R" then
+        return _G.AutoCarry.SkillsCrosshair.target
+    elseif orbwalker == "MMA" then
+        return _G.MMA_Target()
+    elseif orbwalker == "PEWalk" then
+        return _G._Pewalk.GetTarget()
+    elseif orbwalker == nil then
+        if sxLoaded then return SxOrb:EnableAttacks() end
+    end
+end
+
 class "SxScriptUpdate"
+function CheckUpdatesLib()
+    local ToUpdate = {}
+    ToUpdate.UseHttps = true
+    ToUpdate.Host = "raw.githubusercontent.com"
+    ToUpdate.VersionPath = "/Celtech/BOL/master/Lulzlub/version"
+    ToUpdate.ScriptPath =  "/Celtech/BOL/master/Lulzlub/Lulzlib.lua"
+    ToUpdate.SavePath = LIB_PATH.."Lulzlib.lua"
+    ToUpdate.Version = nil
+    ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) print("<font color='#55AAAA'>[Lulzlib]</font> <font color='#FFFFFF'>".."Updated to v"..NewVersion.."</font>") end
+    ToUpdate.CallbackNoUpdate = function(OldVersion) print("<font color='#55AAAA'>[Lulzlib]</font> <font color='#FFFFFF'>".."No Updates Found, loading version " .. OldVersion .. "</font>") LIBUPDATED = true  end
+    ToUpdate.CallbackNewVersion = function(NewVersion) print("<font color='#55AAAA'>[Lulzlib]</font> <font color='#FFFFFF'>".."New Version found ("..NewVersion.."). Please wait until its downloaded then F9x2".."</font>") end
+    ToUpdate.CallbackError = function(NewVersion) print("<font color='#55AAAA'>[Lulzlib]</font> <font color='#FFFFFF'>".."Error while Downloading. Please try again.".."</font>") end
+
+    if FileExist(LIB_PATH.."Lulzlib.lua") then
+        require "Lulzlib"
+		_G.Lulzlib = Lulzlib()
+        ToUpdate.Version = Lulzlib.version
+    else
+        ToUpdate.Version = .00
+    end
+
+
+    SxScriptUpdate(ToUpdate.Version,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError)
+end
 function CheckUpdates(Version)
 	local ToUpdate = {}
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
-    ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
-    ToUpdate.ScriptPath =  "/Celtech/BOL/master/EzREAL/EzREAL.lua"
+    ToUpdate.VersionPath = "/Celtech/BOL/master/Orianna/version"
+    ToUpdate.ScriptPath =  "/Celtech/BOL/master/Orianna/Orianna.lua"
     ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
-    ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) Core:Log("Updated to v"..NewVersion) end
-    ToUpdate.CallbackNoUpdate = function(OldVersion) Core:Log("No Updates Found, loading version " .. Version)
-        UPDATED = true
-    end
-    ToUpdate.CallbackNewVersion = function(NewVersion) Core:Log("New Version found ("..NewVersion.."). Please wait until its downloaded then F9x2") end
-    ToUpdate.CallbackError = function(NewVersion) Core:Log("Error while Downloading. Please try again.") end
+    ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."Updated to v"..NewVersion.."</font>") end
+    ToUpdate.CallbackNoUpdate = function(OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."No Updates Found, loading version ".. OldVersion .."</font>") SCRIPTUPDATED = true  end
+    ToUpdate.CallbackNewVersion = function(NewVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."New Version found ("..NewVersion.."). Please wait until its downloaded then F9x2".."</font>") end
+    ToUpdate.CallbackError = function(NewVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."Error while Downloading. Please try again.".."</font>") end
+
     SxScriptUpdate(Version,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError)
 end
-function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptPath, SavePath, CallbackUpdate, CallbackNoUpdate, CallbackNewVersion,CallbackError)
+function DownloadSXOrb()
+    local ToUpdate = {}
+    ToUpdate.UseHttps = true
+    ToUpdate.Host = "raw.githubusercontent.com"
+    ToUpdate.VersionPath = "/Superx321/BoL/master/common/SxOrbWalk.Version"
+    ToUpdate.ScriptPath =  "/Superx321/BoL/master/common/SxOrbWalk.lua"
+    ToUpdate.SavePath = LIB_PATH.."SxOrbWalk.lua"
+    ToUpdate.Version = nil
+    ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) require "SxOrbWalk" SxOrb:LoadToMenu(Menu.Orbwalker) end
+    ToUpdate.CallbackNoUpdate = function(OldVersion)  require "SxOrbWalk" SxOrb:LoadToMenu(Menu.Orbwalker)  end
+    ToUpdate.CallbackNewVersion = function(NewVersion) print("<font color='#ff8300'>[SxOrbWalker]</font> <font color='#FFFFFF'>".."Downloading SxOrbWalker v"..NewVersion..". No need to reload!".."</font>") end
+    ToUpdate.CallbackError = function(NewVersion) print("<font color='#ff8300'>[SxOrbWalker]</font> <font color='#FFFFFF'>".."Error while Downloading. Please try again.".."</font>") end
+
+    SxScriptUpdate(0.00,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError, true)
+end
+function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptPath, SavePath, CallbackUpdate, CallbackNoUpdate, CallbackNewVersion,CallbackError, IsLib)
     self.LocalVersion = LocalVersion
     self.Host = Host
     self.VersionPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..VersionPath)..'&rand='..math.random(99999999)
@@ -1443,17 +1160,20 @@ function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptP
     self.CallbackNoUpdate = CallbackNoUpdate
     self.CallbackNewVersion = CallbackNewVersion
     self.CallbackError = CallbackError
+    self.Updated = false
+    self.isLib = IsLib or false
     AddDrawCallback(function() self:OnDraw() end)
     self:CreateSocket(self.VersionPath)
     self.DownloadStatus = 'Connect to Server for VersionInfo'
     AddTickCallback(function() self:GetOnlineVersion() end)
 end
-function SxScriptUpdate:print(str)
-    print('<font color="#FFFFFF">'..os.clock()..': '..str)
-end
 function SxScriptUpdate:OnDraw()
     if self.DownloadStatus ~= 'Downloading Script (100%)' and self.DownloadStatus ~= 'Downloading VersionInfo (100%)'then
         DrawText('Download Status: '..(self.DownloadStatus or 'Unknown'),50,10,50,ARGB(0xFF,0xFF,0xFF,0xFF))
+    end
+
+    if self.Updated and not self.isLib then
+        DrawTextA('Update Downloaded, Reload the script!',50,WINDOW_W / 2,WINDOW_H / 2,ARGB(0xFF,0xFF,0x00,0x00), "center", "center")
     end
 end
 function SxScriptUpdate:CreateSocket(url)
@@ -1610,6 +1330,7 @@ function SxScriptUpdate:DownloadUpdate()
                 f:close()
                 if self.CallbackUpdate and type(self.CallbackUpdate) == 'function' then
                     self.CallbackUpdate(self.OnlineVersion,self.LocalVersion)
+                    self.Updated = true
                 end
             end
         end
