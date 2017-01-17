@@ -1,5 +1,5 @@
 function OnLoad()
-    local version = 0.03
+    local version = 0.04
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -123,10 +123,28 @@ function OnLoad()
         		Menu.Orbwalker:removeParam("Lasthit")
         	end
     	end)
-
+    Menu:addSubMenu("Humanizer Menu", "Humanizer")
+        Menu.Humanizer:addSubMenu(myHero.charName.." Spell Whitelist", myHero.charName)
+            Menu.Humanizer[myHero.charName]:addParam("0", "Spell Q", SCRIPT_PARAM_ONOFF, false)
+            Menu.Humanizer[myHero.charName]:addParam("1", "Spell W", SCRIPT_PARAM_ONOFF, false)
+            Menu.Humanizer[myHero.charName]:addParam("2", "Spell E", SCRIPT_PARAM_ONOFF, false)
+            Menu.Humanizer[myHero.charName]:addParam("3", "Spell R", SCRIPT_PARAM_ONOFF, false)
+        Menu.Humanizer:addSubMenu("Movement Limiter", "Movement")
+            Menu.Humanizer.Movement:addParam("Enable", "Use Movement Limiter", SCRIPT_PARAM_ONOFF, true)
+            Menu.Humanizer.Movement:addParam("info222","", SCRIPT_PARAM_INFO, "")
+            Menu.Humanizer.Movement:addParam("info23","Max Actions Per Second", SCRIPT_PARAM_INFO, "")
+            Menu.Humanizer.Movement:addParam("lhit", "Last Hit", SCRIPT_PARAM_SLICE, 6, 1, 20, 0)
+            Menu.Humanizer.Movement:addParam("lclear", "Lane Clear", SCRIPT_PARAM_SLICE, 6, 1, 20, 0)
+            Menu.Humanizer.Movement:addParam("harass", "Harass", SCRIPT_PARAM_SLICE, 8, 1, 20, 0)
+            Menu.Humanizer.Movement:addParam("combo", "Combo", SCRIPT_PARAM_SLICE, 13, 1, 20, 0)
+            Menu.Humanizer.Movement:addParam("perm", "Persistant", SCRIPT_PARAM_SLICE, 9, 1, 20, 0)
+        Menu.Humanizer:addParam("info23","", SCRIPT_PARAM_INFO, "")
+        Menu.Humanizer:addParam("Enable", "Enable humanizer", SCRIPT_PARAM_ONOFF, true)
+        Menu.Humanizer:addParam("FOW", "Ignore new FoW enemies", SCRIPT_PARAM_ONOFF, true)
+        Menu.Humanizer:addParam("info22","Total Commands Blocked: 0", SCRIPT_PARAM_INFO, "")
     Menu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
     Menu:addParam("Packets", "Enable Packet Features", 1, true)
-    Menu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Mastery","Joke","Taunt","Dance","Laugh"})
+    Menu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Dance","Taunt","Laugh","Joke","Mastery"})
     Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulse Fire", "TPA", "Debonair", "Ace of Spades", "Arcade"})
 
     Orbwalker()
@@ -136,6 +154,7 @@ function OnLoad()
     ItemsAndSummoners()
     Vip()
     AntiBaseUlt()
+    --Humanizer()
 end
 
 class "Ezreal"
@@ -288,6 +307,7 @@ function ItemsAndSummoners:__init()
         },
         ["DefensiveItems"] = {"ZhonyasHourglass", "RanduinsOmen", "ArchAngelsDummySpell"},
         ["CleanseItems"] = {"ItemMercurial", "QuicksilverSash"},
+        ["Wards"] = {"ItemGhostWard","TrinketOrbLvl3","TrinketTotemLvl1"},
         ["Cooldowns"] = {
             ["LastPotion"] = 0
         },
@@ -307,6 +327,12 @@ function ItemsAndSummoners:__init()
     self.tDamage = 1
     self.lastRemove = 0
     self.firstBuy = true
+    self.enemies = {}
+	self.tick = 0
+
+    for _, k in pairs(GetEnemyHeroes()) do
+		self.enemies[k.networkID] = {k.visible, Vector(k), os.clock() + 1, Vector(k.path:Path(2))}
+	end
 
     AddLoadCallback(function() self:PrepSummonerSpells() end)
     AddTickCallback(function() self:OnTick() end)
@@ -351,6 +377,7 @@ function ItemsAndSummoners:OnTick()
         self:AutoLeveler()
         self:AutoBuy()
         self:AutoHeal()
+        self:SightWard(self.enemies, self.tick)
     end
 end
 function ItemsAndSummoners:GetSlotItemFromName(itemname)
@@ -647,6 +674,38 @@ function ItemsAndSummoners:AutoBuy()
 		end
 	end
 end
+function ItemsAndSummoners:SightWard(enemies, tick)
+	if Menu.Items.Warding.Enable == 3 or Menu.Items.Warding.Enable == 2 and ComboKey() then
+		tick = os.clock()+0.125
+		for _, k in pairs(GetEnemyHeroes()) do
+			if enemies[k.networkID][1] and not k.visible and not k.dead and enemies[k.networkID][3] >= os.clock() and GetDistance(k) < ( myHero.range + myHero.boundingRadius+50) then
+				local pos = enemies[k.networkID][2]
+				local dir = (enemies[k.networkID][4] - enemies[k.networkID][2]):normalized()
+				for _=150, 600 do
+					local ppos = pos + dir * _
+					if IsWallOfGrass(D3DXVECTOR3(ppos.x,ppos.y,ppos.z)) then
+						self:CastWard(ppos)
+						enemies[k.networkID][3] = 0
+					end
+				end
+			else
+				if k.visible and not k.dead then
+					enemies[k.networkID] = {k.visible, Vector(k), os.clock() + 1, Vector(k.path:Path(2))}
+				end
+			end
+		end
+	end
+end
+function ItemsAndSummoners:CastWard(wardPos)
+    for i=1,3 do
+        self.itemSlot = self:GetSlotItemFromName(self.itemsAndSpells.Wards[i])
+        if self.itemSlot ~= nil then
+            DelayAction(function()
+                CastSpell(self.itemSlot, wardPos.x, wardPos.z)
+            end, Menu.Items.Warding.Delay/1000)
+        end
+	end
+end
 
 class "Vip"
 function Vip:__init()
@@ -678,7 +737,15 @@ function Vip:OnTick()
     if not myHero.dead and Menu.Packets then
         self:SkinChanger()
         self:BaseUltDoUlt()
+        self:TauntOnKill()
     end
+end
+function Vip:TauntOnKill()
+	if myHero.kills > self.killCount then
+		DoEmote(Menu.Taunt - 2)
+
+		self.killCount = myHero.kills
+	end
 end
 function Vip:SkinChanger()
     if self.lastSkin ~= Menu.Skins then
@@ -863,6 +930,52 @@ function AntiBaseUlt:IsLineCircleIntersection(circle, radius, v1, v2)
 	return Dist <= radius * radius
 end
 
+class "Humanizer"
+function Humanizer:__init()
+    self.lastCommand = 0
+    self.blockMove, self.blockCast = false, false
+    self.lastMessage = 0
+    self.okMove = false
+    self.bCount = 0
+
+    AddIssueOrderCallback(function(source, order, position, target) self:OnIssueOrder(source, order, position, target) end)
+end
+function Humanizer:OnIssueOrder(source, order, position, target)
+    if not Menu.Humanizer.Enable then return end
+	if Menu.Humanizer.Movement.Enable and os.clock() - self.lastCommand < moveEvery() and order == 2 then
+		self.blockMove = true
+		self.bCount = self.bCount + 1
+		Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
+		return
+	elseif order == 2 then
+		if not IsOnScreen(position) then
+			if okMove then okMove = false return end
+			blockMove = true
+			bCount = bCount + 1
+			hvMenu:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
+			if hvMenu.msg and os.clock() - lastMessage > 1.5 then
+				Print("Blocked move")
+				lastMessage = os.clock()
+			end
+			return
+		end
+	elseif order == 3 then
+		if not IsOnScreen(target) then
+			if okMove then okMove = false return end
+			blockMove = true
+			bCount = bCount + 1
+			hvMenu:modifyParam("info22", "text", "Total Commands Blocked: "..bCount)
+			if hvMenu.msg and os.clock() - lastMessage > 1.5 then
+				Print("Blocked move")
+				lastMessage = os.clock()
+			end
+			return
+		end
+	end
+
+	lastCommand = os.clock()
+end
+
 class "CTargetSelector"
 function CTargetSelector:__init()
     CTargetSelector.enemyHeros = GetEnemyHeroes()
@@ -1016,8 +1129,6 @@ function Orbwalker:DisableSXOrb()
             Menu.Orbwalker:clear(true,true)
         end
 
-        SxOrb:DisableAttacks()
-        SxOrb:DisableMove()
         SxOrb.menu.general.enabled = false
 
         Menu.Orbwalker:addParam("CustomKey", "Use Custom Combat Keys", SCRIPT_PARAM_ONOFF, false)
