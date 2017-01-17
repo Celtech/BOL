@@ -1,5 +1,5 @@
 function OnLoad()
-    local version = 0.02
+    local version = 0.03
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -590,7 +590,7 @@ function ItemsAndSummoners:CleanseCC(source, unit, buff)
 	end
 end
 function ItemsAndSummoners:CastZhonya()
-	if not myHero.dead and not checkSpecific("kindredrnodeathbuff") and not checkSpecific("judicatorinter") then
+	if not myHero.dead and not TargetHaveBuff("kindredrnodeathbuff") and not TargetHaveBuff("judicatorinter") then
 		local item = GetSlotItemFromName("ZhonyasHourglass")
 		if item then
 			CastSpell(item)
