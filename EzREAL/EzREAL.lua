@@ -1,5 +1,5 @@
 function OnLoad()
-    local version = 0.04
+    local version = 0.05
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -58,12 +58,18 @@ function OnLoad()
             Menu.Spell.RMenu:addParam("EnableCombo", "Use in combo", 1, true)
             Menu.Spell.RMenu:addParam("ComboRangeCheck", "Combo ult range check", SCRIPT_PARAM_SLICE, 800, 0, 9000, 0)
             Menu.Spell.RMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
-            Menu.Spell.RMenu:addParam("EnableSnipe", "Ult to global snipe", 1, true)
-            Menu.Spell.RMenu:addParam("SnipeRangeCheck", "Global snipe range check", SCRIPT_PARAM_SLICE, 1500, 0, 9000, 0)
-            Menu.Spell.RMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
             Menu.Spell.RMenu:addParam("BaseUlt", "Enable base ult", 1, true)
             Menu.Spell.RMenu:addParam("PlaceHolder3", "", SCRIPT_PARAM_INFO, "")
             Menu.Spell.RMenu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, 2, 0, 2, 0)
+            Menu.Spell.RMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+            Menu.Spell.RMenu:addParam("EnableSnipe", "Ult to global snipe", 1, true)
+            Menu.Spell.RMenu:addParam("SnipeRangeCheckMax", "Global snipe max range check", SCRIPT_PARAM_SLICE, 1500, 300, 9000, 0)
+            Menu.Spell.RMenu:setCallback("SnipeRangeCheckMax", function(v)
+                Menu.Spell.RMenu:removeParam("SnipeRangeCheckMin")
+                Menu.Spell.RMenu:addParam("SnipeRangeCheckMin", "Global snipe min range check", SCRIPT_PARAM_SLICE, 1500, 0, v, 0)
+                if Menu.Spell.RMenu.SnipeRangeCheckMin > v then Menu.Spell.RMenu.SnipeRangeCheckMin = v - 300 end
+        	end)
+            Menu.Spell.RMenu:addParam("SnipeRangeCheckMin", "Global snipe min range check", SCRIPT_PARAM_SLICE, 1500, 0, 9000, 0)
         Menu.Spell:addSubMenu("Summoner Spells Menu", "SummonerSpellsMenu")
         Menu.Spell:addSubMenu("Masteries Menu", "MasteriesMenu")
             Menu.Spell.MasteriesMenu:addParam("FerocityMasteries", "Ferocity Masteries", SCRIPT_PARAM_LIST, 1,{"None","Bounty Hunter","Double Edged Sword","Battle Trance"})
@@ -128,20 +134,23 @@ function OnLoad()
             Menu.Humanizer[myHero.charName]:addParam("0", "Spell Q", SCRIPT_PARAM_ONOFF, false)
             Menu.Humanizer[myHero.charName]:addParam("1", "Spell W", SCRIPT_PARAM_ONOFF, false)
             Menu.Humanizer[myHero.charName]:addParam("2", "Spell E", SCRIPT_PARAM_ONOFF, false)
-            Menu.Humanizer[myHero.charName]:addParam("3", "Spell R", SCRIPT_PARAM_ONOFF, false)
+            Menu.Humanizer[myHero.charName]:addParam("3", "Spell R", SCRIPT_PARAM_ONOFF, true)
+            Menu.Humanizer[myHero.charName]:addParam("info22","Turning off Spell R may affect base ult!", SCRIPT_PARAM_INFO, "")
         Menu.Humanizer:addSubMenu("Movement Limiter", "Movement")
             Menu.Humanizer.Movement:addParam("Enable", "Use Movement Limiter", SCRIPT_PARAM_ONOFF, true)
             Menu.Humanizer.Movement:addParam("info222","", SCRIPT_PARAM_INFO, "")
             Menu.Humanizer.Movement:addParam("info23","Max Actions Per Second", SCRIPT_PARAM_INFO, "")
-            Menu.Humanizer.Movement:addParam("lhit", "Last Hit", SCRIPT_PARAM_SLICE, 6, 1, 20, 0)
-            Menu.Humanizer.Movement:addParam("lclear", "Lane Clear", SCRIPT_PARAM_SLICE, 6, 1, 20, 0)
-            Menu.Humanizer.Movement:addParam("harass", "Harass", SCRIPT_PARAM_SLICE, 8, 1, 20, 0)
-            Menu.Humanizer.Movement:addParam("combo", "Combo", SCRIPT_PARAM_SLICE, 13, 1, 20, 0)
-            Menu.Humanizer.Movement:addParam("perm", "Persistant", SCRIPT_PARAM_SLICE, 9, 1, 20, 0)
+            Menu.Humanizer.Movement:addParam("lhit", "Last Hit", SCRIPT_PARAM_SLICE, 6, 1, 25, 0)
+            Menu.Humanizer.Movement:addParam("lclear", "Lane Clear", SCRIPT_PARAM_SLICE, 6, 1, 25, 0)
+            Menu.Humanizer.Movement:addParam("harass", "Harass", SCRIPT_PARAM_SLICE, 8, 1, 25, 0)
+            Menu.Humanizer.Movement:addParam("combo", "Combo", SCRIPT_PARAM_SLICE, 13, 1, 25, 0)
+            Menu.Humanizer.Movement:addParam("perm", "Persistant", SCRIPT_PARAM_SLICE, 9, 1, 25, 0)
+            Menu.Humanizer.Movement:addParam("info233","25 = No restrictions, 1 = Highly Restricted", SCRIPT_PARAM_INFO, "")
         Menu.Humanizer:addParam("info23","", SCRIPT_PARAM_INFO, "")
         Menu.Humanizer:addParam("Enable", "Enable humanizer", SCRIPT_PARAM_ONOFF, true)
         Menu.Humanizer:addParam("FOW", "Ignore new FoW enemies", SCRIPT_PARAM_ONOFF, true)
         Menu.Humanizer:addParam("info22","Total Commands Blocked: 0", SCRIPT_PARAM_INFO, "")
+
     Menu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
     Menu:addParam("Packets", "Enable Packet Features", 1, true)
     Menu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Dance","Taunt","Laugh","Joke","Mastery"})
@@ -154,7 +163,7 @@ function OnLoad()
     ItemsAndSummoners()
     Vip()
     AntiBaseUlt()
-    --Humanizer()
+    Humanizer()
 end
 
 class "Ezreal"
@@ -168,6 +177,7 @@ function Ezreal:__init()
         R = {range = 9999, speed = 2000, delay = 1, radius = 150, collision = false}
     }
 
+    self.enemyHeros = GetEnemyHeroes()
     self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.Q.range - 400, myHero, MINION_SORT_HEALTH_ASC)
 
     AddTickCallback(function() self:OnTick() end)
@@ -184,6 +194,7 @@ function Ezreal:OnTick()
     self:Combo()
     self:Harass()
     self:GetToLaneFaster()
+    self:KillSteal()
 end
 function Ezreal:OnDraw()
     local function ReturnColor(color) return ARGB(color[1],color[2],color[3],color[4]) end
@@ -204,7 +215,15 @@ function Ezreal:OnDraw()
             DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.maxRange, 1, ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
         end
         if Menu.Draw.RSettings.Enabled and self.RState or not Menu.Draw.RSettings.Hide then
-            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheck, 1, ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
+            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheckMax, 1, ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
+            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheckMin, 1, ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
+            for i, enemy in pairs(self.enemyHeros) do
+                if enemy and ValidTarget(enemy) then
+                    if self.RState and self:UltDamage(enemy) > enemy.health and GetDistance(enemy) < Menu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > Menu.Spell.RMenu.SnipeRangeCheckMin then
+                        DrawTextA("You can kill 1 or more enemies, Hold your Force ult key!", 25, WINDOW_H / 2, 50, ARGB(255,255,0,0), "center", "center")
+                    end
+                end
+            end
         end
         if Menu.Draw.DrawTarget then
             if Target ~= nil then
@@ -249,8 +268,8 @@ end
 function Ezreal:CastE(x,z)
     CastSpell(_E, x, z)
 end
-function Ezreal:CastR()
-    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(Target, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
+function Ezreal:CastR(enemy)
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.R.delay, self.SpellTable.R.radius, self.SpellTable.R.range, self.SpellTable.R.speed, self.SpellTable.R.collision, self.SpellTable.R)
     if CastPosition and HitChance >= Menu.Spell.RMenu.Accuracy then
         CastSpell(_R, CastPosition.x, CastPosition.z)
     end
@@ -272,10 +291,6 @@ function Ezreal:Combo()
             if self.WState then
                 self:CastW()
             end
-
-            if self.RState and self:UltDamage(Target) > Target.health and GetDistance(Target) < Menu.Spell.RMenu.ComboRangeCheck then
-                self:CastR()
-            end
         end
     end
 end
@@ -288,6 +303,34 @@ function Ezreal:Harass()
 
             if self.WState and Menu.Spell.WMenu.EnableHarass then
                 self:CastW()
+            end
+        end
+    end
+end
+function Ezreal:KillSteal()
+    for i, enemy in pairs(self.enemyHeros) do
+        if enemy and ValidTarget(enemy) then
+            if Menu.Spell.EMenu.EnableKs then
+                if GetDistance(enemy) > self.SpellTable.Q.range and GetDistance(enemy) < (self.SpellTable.Q.range + self.SpellTable.E.range) then
+                    if enemy.health < (getDmg("Q", enemy, myHero)+((myHero.damage)*1.1)+(myHero.ap*0.4)) then
+                        local p = myHero + (Vector(enemy.pos) - myHero):normalized() * 475
+                        CastSpell(_E, p.x,p.z)
+                        DelayAction((function()
+                            local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, self.SpellTable.Q)
+                            if CastPosition and HitChance >= 1 then
+                                if Info.collision ~= nil and not Info.collision or Info.collision == nil then
+                                    CastSpell(_Q, CastPosition.x, CastPosition.z)
+                                end
+                            end
+                        end), .3)
+                    end
+                end
+            end
+
+            if Menu.Hotkeys.ForceUlt then
+                if self.RState and self:UltDamage(enemy) > enemy.health and GetDistance(enemy) < Menu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > Menu.Spell.RMenu.SnipeRangeCheckMin then
+                    self:CastR(enemy)
+                end
             end
         end
     end
@@ -318,7 +361,8 @@ function ItemsAndSummoners:__init()
             ["Ghost"] = self:GetSummonerSpellFromName("SummonerHaste"),
             ["Cleanse"] = self:GetSummonerSpellFromName("SummonerBoost"),
             ["Flash"] = self:GetSummonerSpellFromName("SummonerFlash"),
-            ["Barrier"] = self:GetSummonerSpellFromName("SummonerBarrier")
+            ["Barrier"] = self:GetSummonerSpellFromName("SummonerBarrier"),
+            ["Smite"] = self:GetSummonerSpellFromName("SummonerSmite")
         }
     }
     self.enemyHeroes = GetEnemyHeroes()
@@ -329,13 +373,14 @@ function ItemsAndSummoners:__init()
     self.firstBuy = true
     self.enemies = {}
 	self.tick = 0
-
+    self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MINHEALTH_DEC)
     for _, k in pairs(GetEnemyHeroes()) do
 		self.enemies[k.networkID] = {k.visible, Vector(k), os.clock() + 1, Vector(k.path:Path(2))}
 	end
 
     AddLoadCallback(function() self:PrepSummonerSpells() end)
     AddTickCallback(function() self:OnTick() end)
+    AddDrawCallback(function() self:AutoSmiteDraw() end)
     AddCastSpellCallback(function(iSpell, vStart, vEnd, target) self:FlashProtection(iSpell, vStart, vEnd, target) end)
     AddProcessAttackCallback(function(unit, spell) self:ProtectFromTower(unit, spell) end)
     AddProcessSpellCallback(function(unit, spell) self:SpellProtection(unit, spell) end)
@@ -367,6 +412,19 @@ function ItemsAndSummoners:PrepSummonerSpells()
     if self.itemsAndSpells.SummonerSpells.Cleanse then
         Menu.Items.CleanseSettings:addParam("Cleanse", "Use Cleanse Summoner", SCRIPT_PARAM_ONOFF, true)
     end
+    if self.itemsAndSpells.SummonerSpells.Smite then
+        Menu.Spell.SummonerSpellsMenu:addParam("Smite", "Use smite", SCRIPT_PARAM_ONOFF, true)
+		Menu.Spell.SummonerSpellsMenu:addParam("DrawSmite", "Draw smite range", SCRIPT_PARAM_ONOFF, true)
+        Menu.Spell.SummonerSpellsMenu:addParam("Dragon", "Use Smite on: Dragon", SCRIPT_PARAM_ONOFF, true)
+		Menu.Spell.SummonerSpellsMenu:addParam("Baron", "Use Smite on: Baron", SCRIPT_PARAM_ONOFF, true)
+        Menu.Spell.SummonerSpellsMenu:addParam("Red", "Use Smite on: Red Buff", SCRIPT_PARAM_ONOFF, true)
+		Menu.Spell.SummonerSpellsMenu:addParam("Blue", "Use Smite on: Blue Buff", SCRIPT_PARAM_ONOFF, true)
+        Menu.Spell.SummonerSpellsMenu:addParam("Crab", "Use Smite on: Rift Scuttler", SCRIPT_PARAM_ONOFF, false)
+		Menu.Spell.SummonerSpellsMenu:addParam("Razorbeak", "Use Smite on: Wraith", SCRIPT_PARAM_ONOFF, false)
+		Menu.Spell.SummonerSpellsMenu:addParam("Murkwolf", "Use Smite on: Wolf", SCRIPT_PARAM_ONOFF, false)
+		Menu.Spell.SummonerSpellsMenu:addParam("Krug", "Use Smite on: Krug", SCRIPT_PARAM_ONOFF, false)
+		Menu.Spell.SummonerSpellsMenu:addParam("Gromp", "Use Smite on: Gromp", SCRIPT_PARAM_ONOFF, false)
+    end
 end
 function ItemsAndSummoners:OnTick()
     if not myHero.dead then
@@ -378,6 +436,7 @@ function ItemsAndSummoners:OnTick()
         self:AutoBuy()
         self:AutoHeal()
         self:SightWard(self.enemies, self.tick)
+        self:AutoSmite()
     end
 end
 function ItemsAndSummoners:GetSlotItemFromName(itemname)
@@ -706,6 +765,40 @@ function ItemsAndSummoners:CastWard(wardPos)
         end
 	end
 end
+function ItemsAndSummoners:AutoSmite()
+    if self.itemsAndSpells.SummonerSpells.Smite then
+        if Menu.Spell.SummonerSpellsMenu.Smite then
+            self.jungleMinions:update()
+
+            if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Smite) == READY then
+        		for i, jungle in pairs(self.jungleMinions.objects) do
+        			if jungle ~= nil then
+                        if math.max(20 * myHero.level + 370, 30 * myHero.level + 330, 40 * myHero.level + 240, 50 * myHero.level + 100) >= jungle.health then
+                            if Menu.Spell.SummonerSpellsMenu[string.split(jungle.charName,'_')[2]] then
+                                CastSpell(self.itemsAndSpells.SummonerSpells.Smite, jungle)
+                            end
+                        end
+        			end
+        		end
+            end
+        end
+	end
+end
+function ItemsAndSummoners:AutoSmiteDraw()
+    if self.itemsAndSpells.SummonerSpells.Smite then
+        if Menu.Spell.SummonerSpellsMenu.Smite and Menu.Spell.SummonerSpellsMenu.DrawSmite then
+            if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Smite) == READY then
+                for i, jungle in pairs(self.jungleMinions.objects) do
+                    if jungle ~= nil then
+                        if Menu.Spell.SummonerSpellsMenu[string.split(jungle.charName,'_')[2]] then
+                            DrawText3D("Smite Damage " .. math.floor(math.max(20 * myHero.level + 370, 30 * myHero.level + 330, 40 * myHero.level + 240, 50 * myHero.level + 100)/jungle.health*100) .. "%", jungle.x, jungle.y, jungle.z, 20, ARGB(255,255,0,0), true)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
 
 class "Vip"
 function Vip:__init()
@@ -731,6 +824,8 @@ function Vip:__init()
         AddRecvPacketCallback2(function(p) self:BaseUltRecvPacket(p) end)
         AddDrawCallback(function() self:BaseUltOnDraw() end)
         AddTickCallback(function() self:OnTick() end)
+    else
+        Log("Your packets are out of date! Packet features will cease to function. Please wait for a library update to be posted!")
     end
 end
 function Vip:OnTick()
@@ -937,10 +1032,85 @@ function Humanizer:__init()
     self.lastMessage = 0
     self.okMove = false
     self.bCount = 0
+    self.globalUlt = {["Draven"] = true, ["Ezreal"] = true, ["Jinx"] = true, ["Ashe"] = true}
+    self.originalCastSpell = _G.CastSpell
 
+    self.gameVersion = GetGameVersion():sub(1,10)
+    self.enemyHeros = GetEnemyHeroes()
+    self.missingEnemy = {}
+    for i, Enemy in pairs(self.enemyHeros) do
+    	self.missingEnemy[Enemy.charName] = os.clock()
+    end
+
+    AddMsgCallback(function(msg,key) self:OnWndMsg(msg, key) end)
+    AddLoadCallback(function() self:OnLoad() end)
     AddIssueOrderCallback(function(source, order, position, target) self:OnIssueOrder(source, order, position, target) end)
+    AddTickCallback(function() self:NewEnemy() end)
+    if _G.Lulzlib.packets[self.gameVersion] ~= nil then
+        AddSendPacketCallback(function(p) self:OnSendPacket(p) end)
+    end
+end
+function Humanizer:IsOnScreen(spot)
+    local check = WorldToScreen(D3DXVECTOR3(spot.x, spot.y, spot.z))
+    local x, y = check.x, check.y
+    if x > 0 and x < WINDOW_W and y > 0 and y < WINDOW_H then
+        return true
+    end
+end
+function Humanizer:OnLoad()
+    _G.ValidTarget = function(object, distance, enemyTeam)
+    	local enemyTeam = (enemyTeam ~= false)
+    	if object ~= nil and object.valid and object.name and (object.type == myHero.type or object.type:find("obj_AI")) and object.bTargetable and (object.team ~= player.team) == enemyTeam and object.visible and not object.dead and (enemyTeam == false or object.bInvulnerable == 0) and (distance == nil or GetDistanceSqr(object) <= distance * distance) and self:IsOnScreen(object) then
+    		if Menu.Humanizer.FOW and object.type == myHero.type and object.team ~= myHero.team and self.missingEnemy[object.charName] ~= 0 then return end
+    		return true
+        end
+    end
+
+    -- _G.CastSpell = function(ID, param2, param3)
+    -- 	if param3 and param2 then
+    -- 		local endPos = Vector(param2, myHero.y, param3)
+    -- 		if ID == 3 and self.globalUlt[myHero.charName] and self:IsOnScreen(myHero.pos) and not Menu.Humanizer[myHero.charName][tostring(ID)] then
+    -- 			local ultSpot = Vector(myHero.x, myHero.y, myHero.z) + (Vector(param2, myHero.y, param3) - Vector(myHero.x, myHero.y, myHero.z)):normalized() * (80 + (math.random()*420))
+    -- 			param2, param3 = ultSpot.x, ultSpot.z
+    -- 		elseif ID ~= 13 and not Menu.Humanizer[myHero.charName][tostring(ID)] then
+    -- 			if endPos then
+    -- 				if not self:IsOnScreen(endPos) then
+    -- 					self.bCount = self.bCount + 1
+    -- 					Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
+    -- 					return
+    -- 				end
+    -- 			end
+    -- 		end
+    -- 	end
+    -- 	if param3 and param2 then
+    -- 		self.originalCastSpell(ID, param2, param3)
+    -- 	elseif param2 then
+    -- 		self.originalCastSpell(ID, param2)
+    -- 	else
+    -- 		self.originalCastSpell(ID)
+    -- 	end
+    -- end
+end
+function Humanizer:NewEnemy()
+	for i, Enemy in pairs(self.enemyHeros) do
+		if not Enemy.visible then
+			self.missingEnemy[Enemy.charName] = os.clock()
+		elseif Enemy.visible and self.missingEnemy[Enemy.charName] ~= 0 then
+			if os.clock() - self.missingEnemy[Enemy.charName] > 1.5 then
+				self.missingEnemy[Enemy.charName] = 0
+			end
+		end
+	end
 end
 function Humanizer:OnIssueOrder(source, order, position, target)
+    local function moveEvery()
+    	if Orbwalker:IsFighting() then return 1 / Menu.Humanizer.Movement.combo
+    	elseif Orbwalker:IsLastHitting() then return 1 / Menu.Humanizer.Movement.lhit
+    	elseif Orbwalker:IsHarassing() then return 1 / Menu.Humanizer.Movement.harass
+    	elseif Orbwalker:IsLaneClearing() then return 1 / Menu.Humanizer.Movement.lclear
+    	else return 1 / Menu.Humanizer.Movement.perm
+    	end
+    end
     if not Menu.Humanizer.Enable then return end
 	if Menu.Humanizer.Movement.Enable and os.clock() - self.lastCommand < moveEvery() and order == 2 then
 		self.blockMove = true
@@ -948,32 +1118,45 @@ function Humanizer:OnIssueOrder(source, order, position, target)
 		Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
 		return
 	elseif order == 2 then
-		if not IsOnScreen(position) then
-			if okMove then okMove = false return end
-			blockMove = true
-			bCount = bCount + 1
-			hvMenu:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
-			if hvMenu.msg and os.clock() - lastMessage > 1.5 then
-				Print("Blocked move")
-				lastMessage = os.clock()
-			end
+		if not self:IsOnScreen(position) then
+			if self.okMove then self.okMove = false return end
+			self.blockMove = true
+			self.bCount = self.bCount + 1
+			Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
 			return
 		end
 	elseif order == 3 then
-		if not IsOnScreen(target) then
-			if okMove then okMove = false return end
-			blockMove = true
-			bCount = bCount + 1
-			hvMenu:modifyParam("info22", "text", "Total Commands Blocked: "..bCount)
-			if hvMenu.msg and os.clock() - lastMessage > 1.5 then
-				Print("Blocked move")
-				lastMessage = os.clock()
-			end
+		if not self:IsOnScreen(target) then
+			if self.okMove then self.okMove = false return end
+			self.blockMove = true
+			self.bCount = self.bCount + 1
+			Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
 			return
 		end
 	end
 
-	lastCommand = os.clock()
+	self.lastCommand = os.clock()
+end
+function Humanizer:OnWndMsg(msg, key)
+	if msg == 516 and key == 2 then
+        self.okMove = true
+    end
+end
+function Humanizer:OnSendPacket(p)
+    if Lulzlib then
+    	if self.blockMove and p.header == _G.Lulzlib.packets[self.gameVersion].Movement.Header then
+    		self.blockMove = false
+    		if self.okMove then self.okMove = false return end
+    		p:Block()
+
+    		self.bCount = self.bCount + 1
+    		Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
+    	end
+
+    	if p.header == _G.Lulzlib.packets[self.gameVersion].Movement.Header and self.okMove then
+    		self.okMove = false
+    	end
+    end
 end
 
 class "CTargetSelector"
@@ -1093,62 +1276,39 @@ end
 class "Orbwalker"
 function Orbwalker:__init()
     local orbwalker = nil
-    local sxLoaded = false
-    AddLoadCallback(function() self:LoadSXOrb() end)
-    AddTickCallback(function() self:Findwalker() end)
+    Orbwalker.timer = os.clock()
+
+    AddTickCallback(function() self:FindOrbwalker() end)
 end
-function Orbwalker:LoadSXOrb()
-    if FileExist(LIB_PATH.."SxOrbWalk.lua") then
-        DelayAction(function()
-            require "SxOrbWalk"
-            SxOrb:LoadToMenu(Menu.Orbwalker)
-            sxLoaded = true
-        end, 2)
-    else
-        DownloadSXOrb()
-    end
-end
-function Orbwalker:Findwalker()
+function Orbwalker:FindOrbwalker()
     if orbwalker ~= nil then return end
-
-    if _G.MMA_IsLoaded  ~= nil then
-        orbwalker = "MMA"
-        self:DisableSXOrb()
-	elseif _G.AutoCarry ~= nil and _G.Reborn_Loaded and _G.Reborn_Initialised then
-        orbwalker = "SAC:R"
-        self:DisableSXOrb()
-	elseif _G._Pewalk ~= nil then
-        orbwalker = "PEWalk"
-        self:DisableSXOrb()
-    end
-end
-function Orbwalker:DisableSXOrb()
-    DelayAction(function()
-        Log(orbwalker.." Detected. Disabling SXOrbWalker")
-        for i = 1, 6 do
-            Menu.Orbwalker:clear(true,true)
+    if _G.Reborn_Initialised and _G.Reborn_Loaded then
+       orbwalker = "SAC:R"
+    elseif _G.MMA_IsLoaded then
+       orbwalker = "MMA"
+    elseif _Pewalk then
+       orbwalker = "PEWalk"
+    else
+        if Orbwalker.timer + 3 <= os.clock() then
+            orbwalker = "SX"
+            if FileExist(LIB_PATH.."SxOrbWalk.lua") then
+                require "SxOrbWalk"
+                SxOrb:LoadToMenu(Menu.Orbwalker)
+                sxLoaded = true
+            else
+                DownloadSXOrb()
+            end
         end
+    end
 
-        SxOrb.menu.general.enabled = false
-
-        Menu.Orbwalker:addParam("CustomKey", "Use Custom Combat Keys", SCRIPT_PARAM_ONOFF, false)
-        Menu.Orbwalker:setCallback("CustomKey", function(v)
-        	if v == true then
-        		Menu.Orbwalker:removeParam("Orbwalker")
-        		Menu.Orbwalker:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
-        		Menu.Orbwalker:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
-        		Menu.Orbwalker:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
-        		Menu.Orbwalker:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
-        	elseif v == false then
-        		Menu.Orbwalker:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
-        		Menu.Orbwalker:removeParam("Combo")
-        		Menu.Orbwalker:removeParam("Harass")
-        		Menu.Orbwalker:removeParam("Laneclear")
-        		Menu.Orbwalker:removeParam("Lasthit")
-        	end
-    	end)
+    if orbwalker ~= nil and not Menu.Orbwalker.CustomKey then
         Menu.Orbwalker:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
-    end, 2)
+    elseif orbwalker ~= nil then
+        Menu.Orbwalker:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
+        Menu.Orbwalker:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
+        Menu.Orbwalker:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
+        Menu.Orbwalker:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+    end
 end
 function Orbwalker:IsFighting()
     if not Menu.Orbwalker.CustomKey then
@@ -1158,8 +1318,8 @@ function Orbwalker:IsFighting()
             return _G.MMA_IsOrbwalking()
         elseif orbwalker == "PEWalk" then
             return _G._Pewalk.GetActiveMode().Carry
-        elseif orbwalker == nil then
-            if sxLoaded then return _G.SxOrb.isFight end
+        elseif orbwalker == "SX" then
+            return _G.SxOrb.isFight
         end
     else
         return Menu.Orbwalker.Combo
@@ -1173,8 +1333,8 @@ function Orbwalker:IsHarassing()
             return _G.MMA_IsDualCarrying()
         elseif orbwalker == "PEWalk" then
             return _G._Pewalk.GetActiveMode().Mixed
-        elseif orbwalker == nil then
-            if sxLoaded then return _G.SxOrb.isHarass end
+        elseif orbwalker == "SX" then
+            return _G.SxOrb.isHarass
         end
     else
         return Menu.Orbwalker.Harass
@@ -1188,8 +1348,23 @@ function Orbwalker:IsLaneClearing()
             return _G.MMA_IsLaneClearing()
         elseif orbwalker == "PEWalk" then
             return _G._Pewalk.GetActiveMode().LaneClear
-        elseif orbwalker == nil then
+        elseif orbwalker == "SX" then
             if sxLoaded then return _G.SxOrb.isLaneClear end
+        end
+    else
+        return Menu.Orbwalker.LaneClear
+    end
+end
+function Orbwalker:IsLastHitting()
+    if not Menu.Orbwalker.CustomKey then
+        if orbwalker == "SAC:R" then
+            return _G.AutoCarry.Keys.LaneClear
+        elseif orbwalker == "MMA" then
+            return _G.MMA_IsLaneClearing()
+        elseif orbwalker == "PEWalk" then
+            return _G._Pewalk.GetActiveMode().LaneClear
+        elseif orbwalker == "SX" then
+            return _G.SxOrb.isLaneClear
         end
     else
         return Menu.Orbwalker.LaneClear
@@ -1202,8 +1377,8 @@ function Orbwalker:GetOrbwalkerTarget()
         return _G.MMA_Target()
     elseif orbwalker == "PEWalk" then
         return _G._Pewalk.GetTarget()
-    elseif orbwalker == nil then
-        if sxLoaded then return SxOrb:EnableAttacks() end
+    elseif orbwalker == "SX" then
+        return SxOrb:EnableAttacks()
     end
 end
 
