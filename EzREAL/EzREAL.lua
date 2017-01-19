@@ -36,7 +36,7 @@ function OnLoad()
         Menu.Spell:addSubMenu("Q Menu", "QMenu")
             Menu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
             Menu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
-            Menu.Spell.QMenu:addParam("EnableClear", "Use in clear", 1, true)
+            Menu.Spell.QMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 1,{"Off","Last Hit","Clear"})
             Menu.Spell.QMenu:addParam("EnableJungle", "Use in jungle", 1, true)
             Menu.Spell.QMenu:addParam("EnableKs", "Use to KS", 1, true)
             Menu.Spell.QMenu:addParam("EnableFlee", "Use to flee with iceborn", 1, true)
@@ -110,7 +110,7 @@ function OnLoad()
             Menu.General.Level:addParam("Sequence", "Leveling Sequence", SCRIPT_PARAM_LIST, 1,{'Q>E>W', 'Q>W>E', 'W>Q>E', 'W>E>Q'})
         Menu.General:addSubMenu("Auto Buy", "Buy")
             Menu.General.Buy:addParam("StartingItems", "Purchase Starting Items", 1, true)
-		    Menu.General.Buy:addParam("TrinketSwitch", "Auto Switch to Blue Trinket", 1, true)
+		    Menu.General.Buy:addParam("TrinketSwitch", "Auto Switch Trinket At 9", SCRIPT_PARAM_LIST, 2, {"Off","Blue","Red"})
         Menu.General:addSubMenu("Anti BaseUlt", "BaseUlt")
             Menu.General.BaseUlt:addParam("Enabled", "Enable Anti BaseUlt", 1, true)
         Menu.General:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
@@ -163,8 +163,12 @@ function OnLoad()
     Menu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
     Menu:addParam("Packets", "Enable Packet Features", 1, true)
     Menu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Dance","Taunt","Laugh","Joke","Mastery"})
-    Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulse Fire", "TPA", "Debonair", "Ace of Spades", "Arcade"})
+    Menu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_LIST, 1,{"Classic", "Nottingham", "Striker", "Frosted", "Explorer", "Pulsefire", "TPA", "Debonair", "Ace of Spades", "Arcade", "Meteorite", "Pearl", "Sandstone", "Obsidian", "Striped", "Ruby", "Rose Quartz", "Amethyst"})
+    Menu:setCallback("Skins", function(v)
+        SetSkin(myHero, v - 1)
+    end)
 
+    SetSkin(myHero, Menu.Skins - 1)
     Orbwalker()
     Prediction()
     CTargetSelector()
@@ -174,16 +178,25 @@ function OnLoad()
     AntiBaseUlt()
     Humanizer()
 end
+function OnUnload()
+    SetSkin(myHero, -1)
+end
 
 class "Ezreal"
 function Ezreal:__init()
     self.QState, self.WState, self.EState = nil, nil, nil
     self.manaPercent = nil
     self.SpellTable = {
-        Q = {range = 1150, speed = 2000, delay = 0.6, radius = 75, collision = true},
-        W = {range = 1000, speed = 1550, delay = 0.6, radius = 100, collision = false},
+        Q = {range = 1150, speed = 2000, delay = 0.25, radius = 75, collision = true},
+        W = {range = 1000, speed = 1550, delay = 0.25, radius = 100, collision = false},
         E = {range = 475, maxRange = 750},
         R = {range = 9999, speed = 2000, delay = 1, radius = 150, collision = false}
+    }
+    Ezreal.spellDmg = {
+        [_Q] = function(unit) if self.QState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 20) + 15) + (myHero.ap * 0.4)) + (myHero.totalDamage * 1.1))) end end,
+        [_W] = function(unit) if self.WState then return myHero:CalcMagicDamage(unit, (((myHero:GetSpellData(_W).level * 45) + 25) + (myHero.ap * 0.8))) end end,
+        [_E] = function(unit) if self.EState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_E).level * 50) + 25) + (myHero.ap * 0.75)) + (myHero.addDamage * 0.5))) end end,
+        [_R] = function(unit) if self.RState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_R).level * 150) + 200) + (myHero.ap * 0.9)) + myHero.addDamage)) end end
     }
 
     self.enemyHeros = GetEnemyHeroes()
@@ -192,6 +205,17 @@ function Ezreal:__init()
 
     AddTickCallback(function() self:OnTick() end)
     AddDrawCallback(function() self:OnDraw() end)
+end
+function Ezreal:GetDamage(spell, unit)
+    if spell == "ALL" then
+        local sum = 0
+          for spell, func in pairs(spellDmg) do
+            sum = sum + (func(unit) or 0)
+          end
+         return sum
+       else
+          return Ezreal.spellDmg[spell](unit) or 0
+       end
 end
 function Ezreal:OnTick()
     self.QState = myHero:CanUseSpell(_Q) == READY
@@ -205,7 +229,7 @@ function Ezreal:OnTick()
     self:Harass()
     self:LaneClear()
     self:GetToLaneFaster()
-    self:KillSteal()
+    --self:KillSteal()
     self:FleeMode()
 end
 function Ezreal:OnDraw()
@@ -231,7 +255,7 @@ function Ezreal:OnDraw()
             DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheckMin, 1, ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
             for i, enemy in pairs(self.enemyHeros) do
                 if enemy and ValidTarget(enemy) then
-                    if self.RState and self:UltDamage(enemy) > enemy.health and GetDistance(enemy) < Menu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > Menu.Spell.RMenu.SnipeRangeCheckMin then
+                    if self.RState and self:GetDamage(_R,enemy) > enemy.health and GetDistance(enemy) < Menu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > Menu.Spell.RMenu.SnipeRangeCheckMin then
                         DrawTextA("You can kill 1 or more enemies, Hold your Force ult key!", 25, WINDOW_H / 2, 50, ARGB(255,255,0,0), "center", "center")
                     end
                 end
@@ -290,13 +314,6 @@ function Ezreal:CastR(enemy)
         CastSpell(_R, CastPosition.x, CastPosition.z)
     end
 end
-function Ezreal:UltDamage(unit)
-    local sLvl = myHero:GetSpellData(_R).level
-   if sLvl < 1 then return 0 end
-   local baseDmg = {350,500,650}
-   local trueDmg = baseDmg[sLvl] + (myHero.ap * .9) + (myHero.damage)
-   return math.floor(myHero:CalcMagicDamage(unit, trueDmg))
-end
 function Ezreal:Combo()
     if Orbwalker:IsFighting() then
         if ValidTarget(Target) then
@@ -337,12 +354,18 @@ function Ezreal:LaneClear()
             end
         end
 
-        if Menu.Spell.QMenu.EnableClear then
+        if Menu.Spell.QMenu.EnableClear > 1 then
             self.enemyMinions:update()
             if self.QState then
                 for i, minion in pairs(self.enemyMinions.objects) do
                     if minion ~= nil and ValidTarget(minion) and GetDistance(minion) < self.SpellTable.Q.range then
-                        self:CastQ(minion)
+                        if Menu.Spell.QMenu.EnableClear == 3 then
+                            self:CastQ(minion)
+                        else
+                            if self:GetDamage(_Q, minion) > minion.health then
+                                self:CastQ(minion)
+                            end
+                        end
                     end
                 end
             end
@@ -364,23 +387,19 @@ function Ezreal:KillSteal()
             end
 
             if Menu.Spell.QMenu.EnableKs then
-                local QDmg = (getDmg("Q", enemy, myHero)+((myHero.damage)*1.1)+(myHero.ap*0.4))
-                local WDmg = (getDmg("W", enemy, myHero)+((myHero.ap)*0.8))
-                if QDmg > enemy.health and enemy.health < WDmg then
+                if self:GetDamage(_Q, enemy) > enemy.health and enemy.health < self:GetDamage(_W, enemy) then
                     self:CastQ(enemy)
                 end
             end
 
             if Menu.Spell.WMenu.EnableKs then
-                local QDmg = (getDmg("Q", enemy, myHero)+((myHero.damage)*1.1)+(myHero.ap*0.4))
-                local WDmg = (getDmg("W", enemy, myHero)+((myHero.ap)*0.8))
-                if QDmg < enemy.health and enemy.health > WDmg then
+                if self:GetDamage(_Q, enemy) < enemy.health and enemy.health > self:GetDamage(_W, enemy) then
                     self:CastW(enemy)
                 end
             end
 
             if Menu.Hotkeys.ForceUlt then
-                if self.RState and self:UltDamage(enemy) > enemy.health and GetDistance(enemy) < Menu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > Menu.Spell.RMenu.SnipeRangeCheckMin then
+                if self.RState and self:GetDamage(_R, enemy) > enemy.health and GetDistance(enemy) < Menu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > Menu.Spell.RMenu.SnipeRangeCheckMin then
                     self:CastR(enemy)
                 end
             end
@@ -464,6 +483,8 @@ function ItemsAndSummoners:__init()
     self.firstBuy = true
     self.enemies = {}
 	self.tick = 0
+    self.killCount = myHero.kills
+
     self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MINHEALTH_DEC)
     for _, k in pairs(GetEnemyHeroes()) do
 		self.enemies[k.networkID] = {k.visible, Vector(k), os.clock() + 1, Vector(k.path:Path(2))}
@@ -528,6 +549,7 @@ function ItemsAndSummoners:OnTick()
         self:AutoHeal()
         self:SightWard(self.enemies, self.tick)
         self:AutoSmite()
+        self:TauntOnKill()
     end
 end
 function ItemsAndSummoners:GetSlotItemFromName(itemname)
@@ -818,9 +840,13 @@ function ItemsAndSummoners:AutoBuy()
 		end
 	end
 
-	if Menu.General.Buy.TrinketSwitch then
-		if myHero.level >= 9 and myHero:GetSpellData(ITEM_7).name ~= "TrinketOrbLvl3" and InFountain() then
+	if Menu.General.Buy.TrinketSwitch > 1 then
+		if myHero.level >= 9 and InFountain() and myHero:GetSpellData(ITEM_7).name ~= "TrinketOrbLvl3" and Menu.General.Buy.TrinketSwitch == 2 then
 			BuyItem(3363)
+		end
+
+        if myHero.level >= 9 and InFountain() and myHero:GetSpellData(ITEM_7).name ~= "TrinketSweeperLvl3" and Menu.General.Buy.TrinketSwitch == 3 then
+			BuyItem(3364)
 		end
 	end
 end
@@ -890,53 +916,44 @@ function ItemsAndSummoners:AutoSmiteDraw()
         end
     end
 end
-
-class "Vip"
-function Vip:__init()
-	self.killCount = myHero.kills
-    self.lastSkin = 0
-    self.gameVersion = GetGameVersion():sub(1,10)
-
-    self.recallTimes = {
-        ['recall'] = 8,
-        ['odinrecall'] = 4.5,
-        ['odinrecallimproved'] = 4.0,
-        ['recallimproved'] = 7.0,
-        ['superrecall'] = 4.0,
-        ['teleport'] = 4.5,
-    }
-    self.ActiveRecalls = {}
-    self.BaseSpots = {
-        D3DXVECTOR3(396,182.132,462),
-        D3DXVECTOR3(14340.418,171.9777,14391.075)
-    }
-
-	if _G.Lulzlib.packets[self.gameVersion] ~= nil then
-        AddRecvPacketCallback2(function(p) self:BaseUltRecvPacket(p) end)
-        AddDrawCallback(function() self:BaseUltOnDraw() end)
-        AddTickCallback(function() self:OnTick() end)
-    else
-        Log("Your packets are out of date! Packet features will cease to function. Please wait for a library update to be posted!")
-    end
-end
-function Vip:OnTick()
-    if not myHero.dead and Menu.Packets then
-        self:SkinChanger()
-        self:BaseUltDoUlt()
-        self:TauntOnKill()
-    end
-end
-function Vip:TauntOnKill()
+function ItemsAndSummoners:TauntOnKill()
 	if myHero.kills > self.killCount then
 		DoEmote(Menu.Taunt - 2)
 
 		self.killCount = myHero.kills
 	end
 end
-function Vip:SkinChanger()
-    if self.lastSkin ~= Menu.Skins then
-        self.lastSkin = Menu.Skins
-        SetSkin(myHero, Menu.Skins - 1)
+
+class "Vip"
+function Vip:__init()
+    if _G.Lulzlib then
+        self.gameVersion = GetGameVersion():sub(1,10)
+
+        self.recallTimes = {
+            ['recall'] = 8,
+            ['odinrecall'] = 4.5,
+            ['odinrecallimproved'] = 4.0,
+            ['recallimproved'] = 7.0,
+            ['superrecall'] = 4.0,
+            ['teleport'] = 4.5,
+        }
+        self.ActiveRecalls = {}
+        self.BaseSpots = {
+            D3DXVECTOR3(396,182.132,462),
+            D3DXVECTOR3(14340.418,171.9777,14391.075)
+        }
+
+        if VIP_USER then
+        	if _G.Lulzlib.packets[self.gameVersion] ~= nil then
+                AddRecvPacketCallback2(function(p) self:BaseUltRecvPacket(p) end)
+                AddDrawCallback(function() self:BaseUltOnDraw() end)
+                AddTickCallback(function() self:BaseUltDoUlt() end)
+            else
+                Log("Your packets are out of date! Packet features will cease to function. Please wait for a library update to be posted!")
+            end
+        else
+            Log("Base ult will be disabled, you need to be a VIP user to use this function!")
+        end
     end
 end
 function Vip:BaseUltRecvPacket(p)
@@ -1030,7 +1047,7 @@ function Vip:BaseUltProgressBar(x, y, percent, text, tick)
 end
 function Vip:BaseUltPredictIfUltCanKill(target)
     if myHero.charName == "Ezreal" or myHero.charName == "Jinx" or myHero.charName == "Draven" or myHero.charName == "Ashe" then
-        if Ezreal:UltDamage(target.object) > target.startHP + (target.hpRegen * 7.9)  then
+        if Ezreal:GetDamage(_R, target.object) > target.startHP + (target.hpRegen * 7.9)  then
             return true
         else
             return false
@@ -1119,12 +1136,12 @@ end
 class "Humanizer"
 function Humanizer:__init()
     self.lastCommand = 0
-    self.blockMove, self.blockCast = false, false
     self.lastMessage = 0
-    self.okMove = false
     self.bCount = 0
     self.globalUlt = {["Draven"] = true, ["Ezreal"] = true, ["Jinx"] = true, ["Ashe"] = true}
     self.originalCastSpell = _G.CastSpell
+    self.originalValidTarget = _G.ValidTarget
+    self.functionTrackerValid,self.functionTrackerCast = 0, 0
 
     self.gameVersion = GetGameVersion():sub(1,10)
     self.enemyHeros = GetEnemyHeroes()
@@ -1134,12 +1151,9 @@ function Humanizer:__init()
     end
 
     AddMsgCallback(function(msg,key) self:OnWndMsg(msg, key) end)
-    AddLoadCallback(function() self:OnLoad() end)
     AddIssueOrderCallback(function(source, order, position, target) self:OnIssueOrder(source, order, position, target) end)
     AddTickCallback(function() self:NewEnemy() end)
-    if _G.Lulzlib.packets[self.gameVersion] ~= nil then
-        AddSendPacketCallback(function(p) self:OnSendPacket(p) end)
-    end
+    AddTickCallback(function() self:Functions() end)
 end
 function Humanizer:IsOnScreen(spot)
     local check = WorldToScreen(D3DXVECTOR3(spot.x, spot.y, spot.z))
@@ -1148,39 +1162,51 @@ function Humanizer:IsOnScreen(spot)
         return true
     end
 end
-function Humanizer:OnLoad()
-    _G.ValidTarget = function(object, distance, enemyTeam)
-    	local enemyTeam = (enemyTeam ~= false)
-    	if object ~= nil and object.valid and object.name and (object.type == myHero.type or object.type:find("obj_AI")) and object.bTargetable and (object.team ~= player.team) == enemyTeam and object.visible and not object.dead and (enemyTeam == false or object.bInvulnerable == 0) and (distance == nil or GetDistanceSqr(object) <= distance * distance) and self:IsOnScreen(object) then
-    		if Menu.Humanizer.FOW and object.type == myHero.type and object.team ~= myHero.team and self.missingEnemy[object.charName] ~= 0 then return end
-    		return true
+function Humanizer:Functions()
+    if Menu.Humanizer.FOW and self.functionTrackerValid == 0 then
+        _G.ValidTarget = function(object, distance, enemyTeam)
+        	local enemyTeam = (enemyTeam ~= false)
+        	if object ~= nil and object.valid and object.name and (object.type == myHero.type or object.type:find("obj_AI")) and object.bTargetable and (object.team ~= player.team) == enemyTeam and object.visible and not object.dead and (enemyTeam == false or object.bInvulnerable == 0) and (distance == nil or GetDistanceSqr(object) <= distance * distance) and self:IsOnScreen(object) then
+        		if Menu.Humanizer.FOW and object.type == myHero.type and object.team ~= myHero.team and self.missingEnemy[object.charName] ~= 0 then return end
+        		return true
+            end
         end
+        self.functionTrackerValid = 1
+    elseif not Menu.Humanizer.FOW and self.functionTrackerValid == 1 then
+        _G.ValidTarget = self.originalValidTarget
+        self.functionTrackerValid = 0
     end
 
-    -- _G.CastSpell = function(ID, param2, param3)
-    -- 	if param3 and param2 then
-    -- 		local endPos = Vector(param2, myHero.y, param3)
-    -- 		if ID == 3 and self.globalUlt[myHero.charName] and self:IsOnScreen(myHero.pos) and not Menu.Humanizer[myHero.charName][tostring(ID)] then
-    -- 			local ultSpot = Vector(myHero.x, myHero.y, myHero.z) + (Vector(param2, myHero.y, param3) - Vector(myHero.x, myHero.y, myHero.z)):normalized() * (80 + (math.random()*420))
-    -- 			param2, param3 = ultSpot.x, ultSpot.z
-    -- 		elseif ID ~= 13 and not Menu.Humanizer[myHero.charName][tostring(ID)] then
-    -- 			if endPos then
-    -- 				if not self:IsOnScreen(endPos) then
-    -- 					self.bCount = self.bCount + 1
-    -- 					Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
-    -- 					return
-    -- 				end
-    -- 			end
-    -- 		end
-    -- 	end
-    -- 	if param3 and param2 then
-    -- 		self.originalCastSpell(ID, param2, param3)
-    -- 	elseif param2 then
-    -- 		self.originalCastSpell(ID, param2)
-    -- 	else
-    -- 		self.originalCastSpell(ID)
-    -- 	end
-    -- end
+    if Menu.Humanizer.Enable and self.functionTrackerCast == 0 then
+        _G.CastSpell = function(ID, param2, param3)
+    	if param3 and param2 then
+    		local endPos = Vector(param2, myHero.y, param3)
+    		if ID == 3 and self.globalUlt[myHero.charName] and self:IsOnScreen(myHero.pos) and not Menu.Humanizer[myHero.charName][tostring(ID)] then
+    			local ultSpot = Vector(myHero.x, myHero.y, myHero.z) + (Vector(param2, myHero.y, param3) - Vector(myHero.x, myHero.y, myHero.z)):normalized() * (80 + (math.random()*420))
+    			param2, param3 = ultSpot.x, ultSpot.z
+    		elseif ID ~= 13 and not Menu.Humanizer[myHero.charName][tostring(ID)] then
+    			if endPos then
+    				if not self:IsOnScreen(endPos) then
+    					self.bCount = self.bCount + 1
+    					Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
+    					return
+    				end
+    			end
+    		end
+    	end
+    	if param3 and param2 then
+    		self.originalCastSpell(ID, param2, param3)
+    	elseif param2 then
+    		self.originalCastSpell(ID, param2)
+    	else
+    		self.originalCastSpell(ID)
+    	end
+        end
+        self.functionTrackerCast = 1
+    elseif not Menu.Humanizer.Enable and self.functionTrackerCast == 1 then
+        _G.CastSpell = self.originalCastSpell
+        self.functionTrackerCast = 0
+    end
 end
 function Humanizer:NewEnemy()
 	for i, Enemy in pairs(self.enemyHeros) do
@@ -1204,22 +1230,20 @@ function Humanizer:OnIssueOrder(source, order, position, target)
     end
     if not Menu.Humanizer.Enable then return end
 	if Menu.Humanizer.Movement.Enable and os.clock() - self.lastCommand < moveEvery() and order == 2 then
-		self.blockMove = true
+		BlockOrder()
 		self.bCount = self.bCount + 1
 		Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
 		return
 	elseif order == 2 then
 		if not self:IsOnScreen(position) then
-			if self.okMove then self.okMove = false return end
-			self.blockMove = true
+			BlockOrder()
 			self.bCount = self.bCount + 1
 			Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
 			return
 		end
 	elseif order == 3 then
 		if not self:IsOnScreen(target) then
-			if self.okMove then self.okMove = false return end
-			self.blockMove = true
+			BlockOrder()
 			self.bCount = self.bCount + 1
 			Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
 			return
@@ -1231,22 +1255,6 @@ end
 function Humanizer:OnWndMsg(msg, key)
 	if msg == 516 and key == 2 then
         self.okMove = true
-    end
-end
-function Humanizer:OnSendPacket(p)
-    if Lulzlib then
-    	if self.blockMove and p.header == _G.Lulzlib.packets[self.gameVersion].Movement.Header then
-    		self.blockMove = false
-    		if self.okMove then self.okMove = false return end
-    		p:Block()
-
-    		self.bCount = self.bCount + 1
-    		Menu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
-    	end
-
-    	if p.header == _G.Lulzlib.packets[self.gameVersion].Movement.Header and self.okMove then
-    		self.okMove = false
-    	end
     end
 end
 
