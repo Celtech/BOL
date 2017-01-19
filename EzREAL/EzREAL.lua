@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("F3lHB1VyjuAmxYnp")
 
 function OnLoad()
-    local version = 0.08
+    local version = 0.07
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -1363,6 +1363,8 @@ function Prediction:GetPredictedPosistion(hero, delay)
             return VPrediction:GetPredictedPos(hero, delay)
         elseif _G.predictonTable.ActivePrediction == "FHPrediction" then
             return FHPrediction.PredictPosition(hero, delay)
+        elseif _G.predictonTable.ActivePrediction == "HPrediction" then
+            return HPrediction:PredictPos(hero, delay)
         end
     end
 end
