@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("F3lHB1VyjuAmxYnp")
 
 function OnLoad()
-    local version = 0.07
+    local version = 0.09
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -433,7 +433,7 @@ function Ezreal:FleeMode()
         if Menu.Spell.QMenu.EnableFlee then
             local icebornSlot = findIceBorn()
             if icebornSlot then
-                self:CastQ()
+                self:CastQ(Target)
             end
         end
 
