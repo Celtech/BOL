@@ -291,7 +291,7 @@ function Ezreal:CastQ(target)
     if self.QState then
         local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(target, self.SpellTable.Q.delay, self.SpellTable.Q.radius, self.SpellTable.Q.range, self.SpellTable.Q.speed, self.SpellTable.Q.collision, "Q")
         if CastPosition and HitChance >= Menu.Spell.QMenu.Accuracy then
-            if Info.collision ~= nil and not Info.collision or Info.collision == nil then
+            if Info ~= nil and Info.collision ~= nil and not Info.collision or Info == nil or Info.collision == nil then
                 CastSpell(_Q, CastPosition.x, CastPosition.z)
             end
         end
@@ -1306,7 +1306,7 @@ end
 class "Prediction"
 function Prediction:__init()
     _G.predictonTable = {
-        ["Predictions"] = {"VPrediction", "FHPrediction"},
+        ["Predictions"] = {"VPrediction", "FHPrediction", "HPrediction"},
         ["FoundPredictions"] = {},
         ["LoadedPredictions"] = {},
         ["ActivePrediction"] = nil,
@@ -1333,16 +1333,18 @@ function Prediction:ActivePrediction()
     require(_G.predictonTable.ActivePrediction)
     if _G.predictonTable.ActivePrediction == "VPrediction" then
         VPrediction = VPrediction()
-    elseif _G.predictonTable.ActivePrediction == "VPrediction" then
-        SPrediction = SPrediction()
+    elseif _G.predictonTable.ActivePrediction == "HPrediction" then
+        HPrediction = HPrediction()
     end
 end
-function Prediction:GetLineCastPosition(hero, delay, width, range, speed, collision, spellSlot, pos)
+function Prediction:GetLineCastPosition(chero, cdelay, cwidth, crange, cspeed, ccollision, cspellSlot, cpos)
     if _G.predictonTable.ActivePrediction ~= nil then
         if _G.predictonTable.ActivePrediction == "VPrediction" then
-            return VPrediction:GetLineCastPosition(hero, delay, width, range, speed, pos or myHero, collision)
+            return VPrediction:GetLineCastPosition(chero, cdelay, cwidth, crange, cspeed, cpos or myHero, ccollision)
         elseif _G.predictonTable.ActivePrediction == "FHPrediction" then
-            return FHPrediction.GetPrediction(spellSlot, hero)
+            return FHPrediction.GetPrediction(cspellSlot, chero)
+        elseif _G.predictonTable.ActivePrediction == "HPrediction" then
+            return HPrediction:GetPredict(HPSkillshot({type = "DelayLine", delay = cdelay, range = crange, speed = cspeed, collisionM = ccollision, collisionH = ccollision, width = cwidth}), chero, myHero);
         end
     end
 end
