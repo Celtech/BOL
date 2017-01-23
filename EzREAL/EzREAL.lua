@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("F3lHB1VyjuAmxYnp")
 
 function OnLoad()
-    local version = 0.11
+    local version = 0.12
     CheckUpdatesLib()
     CheckUpdates(version)
 
