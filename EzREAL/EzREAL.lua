@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("F3lHB1VyjuAmxYnp")
 
 function OnLoad()
-    local version = 0.10
+    local version = 0.11
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -29,6 +29,7 @@ function OnLoad()
             Menu.Draw.RSettings:addParam("Enabled", "Draw global snipe range on map", 1, true)
             Menu.Draw.RSettings:addParam("Hide", "Don't draw when not castable", 1, true)
             Menu.Draw.RSettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,255})
+            Menu.Draw.RSettings:addParam("BaseUlt", "Draw baseult tracker", 1, true)
         Menu.Draw:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         Menu.Draw:addParam("StreamMode", "Enable Streaming Mode(F7)", SCRIPT_PARAM_ONKEYTOGGLE, false, 118)
         Menu.Draw:addParam("DrawTarget", "Draw Target", 1, true)
@@ -179,7 +180,7 @@ function OnLoad()
     CTargetSelector()
     Ezreal()
     ItemsAndSummoners()
-    Vip()
+    BaseUlt()
     AntiBaseUlt()
     Humanizer()
 end
@@ -191,6 +192,8 @@ class "Ezreal"
 function Ezreal:__init()
     self.QState, self.WState, self.EState = nil, nil, nil
     self.manaPercent = nil
+    self.streamMode = Menu.Draw.StreamMode
+    self.print,self.PrintChat = _G.print, _G.PrintChat
     self.lastBardRCoords = {x = 0, z = 0, time = 0, ulted = false}
     self.castTime = 0
     self.SpellTable = {
@@ -262,19 +265,19 @@ function Ezreal:OnDraw()
         if Menu.Draw.AASettings.Enabled then
             DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, ReturnColor(Menu.Draw.AASettings.CircleColor), 100)
         end
-        if Menu.Draw.QSettings.Enabled and self.QState or not Menu.Draw.QSettings.Hide then
+        if Menu.Draw.QSettings.Enabled and (self.QState or not Menu.Draw.QSettings.Hide) then
             DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, ReturnColor(Menu.Draw.QSettings.CircleColor), 100)
         end
-        if Menu.Draw.WSettings.Enabled and self.WState or not Menu.Draw.WSettings.Hide then
+        if Menu.Draw.WSettings.Enabled and (self.WState or not Menu.Draw.WSettings.Hide) then
             DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.range, 1, ReturnColor(Menu.Draw.WSettings.CircleColor), 100)
         end
-        if Menu.Draw.ESettings.Enabled and self.EState or not Menu.Draw.ESettings.Hide then
+        if Menu.Draw.ESettings.Enabled and (self.EState or not Menu.Draw.ESettings.Hide) then
             DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.range, 1, ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
         end
-        if Menu.Draw.ESettings.Enabled and self.EState or not Menu.Draw.ESettings.Hide then
+        if Menu.Draw.ESettings.Enabled and (self.EState or not Menu.Draw.ESettings.Hide) then
             DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.maxRange, 1, ReturnColor(Menu.Draw.ESettings.CircleColor), 100)
         end
-        if Menu.Draw.RSettings.Enabled and self.RState or not Menu.Draw.RSettings.Hide then
+        if Menu.Draw.RSettings.Enabled and (self.RState or not Menu.Draw.RSettings.Hide) then
             DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheckMax, 1, ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
             DrawCircleMinimap(myHero.x, myHero.y, myHero.z, Menu.Spell.RMenu.SnipeRangeCheckMin, 1, ReturnColor(Menu.Draw.RSettings.CircleColor), 50)
             for i, enemy in pairs(self.enemyHeros) do
@@ -289,6 +292,21 @@ function Ezreal:OnDraw()
             if Target ~= nil then
                 DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
             end
+        end
+        if Menu.Draw.StreamMode and not self.streamMode then
+            for i=1, 20 do
+                print(" ")
+            end
+            DisableOverlay()
+            _G.print = function() end
+            _G.PrintChat = function() end
+
+            self.streamMode = true
+        elseif not Menu.Draw.StreamMode and self.streamMode then
+            EnableOverlay()
+            _G.print = self.print
+            _G.PrintChat = self.PrintChat
+            self.streamMode = false
         end
     end
 end
@@ -998,8 +1016,8 @@ function ItemsAndSummoners:TauntOnKill()
 	end
 end
 
-class "Vip"
-function Vip:__init()
+class "BaseUlt"
+function BaseUlt:__init()
     if _G.Lulzlib then
         self.gameVersion = GetGameVersion():sub(1,10)
 
@@ -1030,7 +1048,7 @@ function Vip:__init()
         end
     end
 end
-function Vip:BaseUltRecvPacket(p)
+function BaseUlt:BaseUltRecvPacket(p)
 	if p.header == _G.Lulzlib.packets[self.gameVersion].Recall.Header then
 		p.pos = _G.Lulzlib.packets[self.gameVersion].Recall.pos
         local ptemp = CLoLPacket(0x00)
@@ -1081,8 +1099,8 @@ function Vip:BaseUltRecvPacket(p)
 		end
 	end
 end
-function Vip:BaseUltOnDraw()
-    if not myHero.dead and Menu.Spell.RMenu.BaseUlt then
+function BaseUlt:BaseUltOnDraw()
+    if not myHero.dead and Menu.Spell.RMenu.BaseUlt and Menu.Draw.RSettings.BaseUlt then
         for i, enemy in pairs(self.ActiveRecalls) do
             if self:BaseUltPredictIfUltCanKill(enemy) then
                 self:BaseUltProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self:BaseUltGetBaseCoords()) / 2000) + 1) / 8 * 100)
@@ -1090,7 +1108,7 @@ function Vip:BaseUltOnDraw()
         end
     end
 end
-function Vip:BaseUltDoUlt()
+function BaseUlt:BaseUltDoUlt()
     if not myHero.dead and Menu.Spell.RMenu.BaseUlt then
         self.time = GetDistance(myHero, self.BaseSpots[2]) / 2000
         for i, snipeTarget in pairs(self.ActiveRecalls) do
@@ -1100,14 +1118,14 @@ function Vip:BaseUltDoUlt()
         end
     end
 end
-function Vip:BaseUltGetBaseCoords()
+function BaseUlt:BaseUltGetBaseCoords()
     if myHero.team == 100 then
         return self.BaseSpots[2]
     else
         return self.BaseSpots[1]
     end
 end
-function Vip:BaseUltProgressBar(x, y, percent, text, tick)
+function BaseUlt:BaseUltProgressBar(x, y, percent, text, tick)
     DrawRectangle(x, y - 5, 300, 40, ARGB(255,100,100,100))
     DrawRectangle(x + 5, y, 290, 30, ARGB(255,30,30,30))
     DrawRectangle(x + 5, y, (percent/100)*290, 30, ARGB(255,255,0,0))
@@ -1119,7 +1137,7 @@ function Vip:BaseUltProgressBar(x, y, percent, text, tick)
     end
     DrawText(text,20,y + 8,x + 5,ARGB(255,255,255,255))
 end
-function Vip:BaseUltPredictIfUltCanKill(target)
+function BaseUlt:BaseUltPredictIfUltCanKill(target)
     if myHero.charName == "Ezreal" or myHero.charName == "Jinx" or myHero.charName == "Draven" or myHero.charName == "Ashe" then
         if Ezreal:GetDamage(_R, target.object) > target.startHP + (target.hpRegen * 7.9)  then
             return true
