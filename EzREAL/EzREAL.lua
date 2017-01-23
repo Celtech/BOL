@@ -487,7 +487,6 @@ end
 function Ezreal:AutoR(unit, spell)
     if not Menu.Spell.RMenu.EnableInitiator or unit.isMe then return end
     if unit.team == myHero.team then
-        print(spell.name)
         if Menu.Spell.RMenu[unit.charName] then
             if GetDistanceSqr(spell.endPos) <= Menu.Spell.RMenu.InitiatorRangeCheck * Menu.Spell.RMenu.InitiatorRangeCheck then
                 if self.autoRTable[unit.charName].name == spell.name then
