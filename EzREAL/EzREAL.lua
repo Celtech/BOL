@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("F3lHB1VyjuAmxYnp")
 
 function OnLoad()
-    local version = 0.12
+    local version = 0.13
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -866,7 +866,7 @@ function ItemsAndSummoners:CountEnemiesNearUnitReg(unit, range)
 end
 function ItemsAndSummoners:CleanseCC(source, unit, buff)
 	if not buff or not source or not source.valid or not unit or not unit.valid then return end
-	if unit.isMe and (Menu.Items.CleanseSettings.Enable == 3 or Menu.Items.CleanseSettings.Enable == 2 and Libraries:ComboKey()) then
+	if unit.isMe and (Menu.Items.CleanseSettings.Enable == 3 or Menu.Items.CleanseSettings.Enable == 2 and Orbwalker:IsFighting()) then
         if (source.charName == "Rammus" and buff.type ~= 8) or source.charName == "Alistar" or source.charName:lower():find("baron") or source.charName:lower():find("spiderboss") or source.charName == "LeeSin" or (source.charName == "Hecarim" and not buff.name:lower():find("fleeslow")) then return end
 		if buff.name and ((not cleanse and buff.type == 24) or buff.type == 5 or buff.type == 11 or buff.type == 22 or buff.type == 21 or buff.type == 8) or (buff.type == 25 and Menu.Items.CleanseSettings.Blind)
 		or (buff.type == 10 and buff.name and buff.name:lower():find("fleeslow")) then
