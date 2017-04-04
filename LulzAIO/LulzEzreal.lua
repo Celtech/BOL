@@ -297,7 +297,7 @@ function Ezreal:GetToLaneFaster()
 end
 function Ezreal:CastQ(enemy)
     if self.QState then
-        local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.Q, "Q")
+        local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.Q)
         if CastPosition and HitChance >= LulzMenu.Spell.QMenu.Accuracy then
             if Info ~= nil and Info.collision ~= nil and not Info.collision or Info == nil or Info.collision == nil then
                 CastSpell(_Q, CastPosition.x, CastPosition.z)
@@ -306,7 +306,7 @@ function Ezreal:CastQ(enemy)
     end
 end
 function Ezreal:CastW(enemy)
-    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.W, "W")
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.W)
     if CastPosition and HitChance >= LulzMenu.Spell.WMenu.Accuracy then
         CastSpell(_W, CastPosition.x, CastPosition.z)
     end
