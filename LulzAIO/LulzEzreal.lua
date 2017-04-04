@@ -184,7 +184,7 @@ function Ezreal:GetDamage(spell, unit)
           end
          return sum
        else
-          return Ezreal.spellDmg[spell](unit) or 0
+          return self.spellDmg[spell](unit) or 0
        end
 end
 function Ezreal:OnTick()
