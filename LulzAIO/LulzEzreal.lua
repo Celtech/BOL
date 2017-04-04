@@ -179,7 +179,7 @@ end
 function Ezreal:GetDamage(spell, unit)
     if spell == "ALL" then
         local sum = 0
-          for spell, func in pairs(spellDmg) do
+          for spell, func in pairs(self.spellDmg) do
             sum = sum + (func(unit) or 0)
           end
          return sum
