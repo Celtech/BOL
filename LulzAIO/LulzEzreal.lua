@@ -269,7 +269,7 @@ function Ezreal:BaseUltGetBaseCoords()
 end
 function Ezreal:BaseUltPredictIfUltCanKill(target)
     if myHero.charName == "Ezreal" or myHero.charName == "Jinx" or myHero.charName == "Draven" or myHero.charName == "Ashe" then
-        if Ezreal:GetDamage(_R, target.object) > target.startHP + (target.hpRegen * 7.9)  then
+        if self:GetDamage(_R, target.object) > target.startHP + (target.hpRegen * 7.9)  then
             return true
         else
             return false
