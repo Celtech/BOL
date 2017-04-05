@@ -1276,7 +1276,7 @@ function DownloadChampion()
         ToUpdate.Host = "raw.githubusercontent.com"
         ToUpdate.VersionPath = "/Celtech/BOL/master/LulzAIO/Lulz"..myHero.charName..".version"
         ToUpdate.ScriptPath =  "/Celtech/BOL/master/LulzAIO/Lulz"..myHero.charName..".lua"
-        ToUpdate.SavePath = LIB_PATH.."Lulz"..myHero.charName
+        ToUpdate.SavePath = LIB_PATH.."Lulz"..myHero.charName..".lua"
         ToUpdate.Version = nil
         ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) require("Lulz"..myHero.charName) if _G[myHero.charName] then _G[myHero.charName]() end end
         ToUpdate.CallbackNoUpdate = function(OldVersion)  require("Lulz"..myHero.charName) if _G[myHero.charName] then _G[myHero.charName]() end  end
