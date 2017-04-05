@@ -88,7 +88,7 @@ function Ezreal:recallFunction(Hero, Status)
 		if self.recallTimes[str:lower()] then
 			if LulzMenu.General.Verbose then
 				if not o.visible and self.lasttime[o.networkID]  then
-					Log(r.name.." is recalling. Last seen "..string.format("%.1f", os.clock() -self.lasttime[o.networkID], 1).." seconds ago." )
+					print(r.name.." is recalling. Last seen "..string.format("%.1f", os.clock() -self.lasttime[o.networkID], 1).." seconds ago." )
 				end
 			end
 			self.activeRecalls[o.networkID] = {
@@ -104,7 +104,7 @@ function Ezreal:recallFunction(Hero, Status)
 		elseif self.activeRecalls[o.networkID] then
 			if self.activeRecalls[o.networkID] and self.activeRecalls[o.networkID].endT > os.clock() then
 				if LulzMenu.General.Verbose then
-					Log(self.activeRecalls[o.networkID].name.." canceled recall")
+					print(self.activeRecalls[o.networkID].name.." canceled recall")
 				end
 				recallTime = nil
 				recallName = nil
@@ -116,7 +116,7 @@ function Ezreal:recallFunction(Hero, Status)
 					jungleText = "Recalled"
 				end
 				if LulzMenu.General.Verbose then
-					Log(self.activeRecalls[o.networkID].name.." finished recall")
+					print(self.activeRecalls[o.networkID].name.." finished recall")
 				end
 				self.activeRecalls[o.networkID] = nil
 				recallTime = nil
