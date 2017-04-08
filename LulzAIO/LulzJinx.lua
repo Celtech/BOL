@@ -62,7 +62,6 @@ function Jinx:__init()
     	end
     end)
     AddDrawCallback(function() self:OnDraw() end)
-    AddProcessSpellCallback(function(unit, spell) self:AutoR(unit, spell) end)
 end
 function Jinx:BaseUlt()
     if not myHero.dead and LulzMenu.Spell.RMenu.BaseUlt then
