@@ -248,7 +248,7 @@ function Jinx:OnDraw()
         if LulzMenu.Spell.RMenu.BaseUlt and LulzMenu.Draw.RSettings.BaseUlt then
             for i, enemy in pairs(self.activeRecalls) do
                  if self:BaseUltPredictIfUltCanKill(enemy) then
-                     BaseUltProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self:BaseUltGetBaseCoords()) / 2500) + 1) / 8 * 100)
+                     BaseUltProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self:BaseUltGetBaseCoords()) / 2500) + 1.5) / 8 * 100)
                  end
             end
         end
