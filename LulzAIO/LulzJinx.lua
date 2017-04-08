@@ -67,7 +67,7 @@ function Jinx:BaseUlt()
     if not myHero.dead and LulzMenu.Spell.RMenu.BaseUlt then
         self.time = GetDistance(myHero, self.BaseSpots[2]) / 2500
         for i, snipeTarget in pairs(self.activeRecalls) do
-            if (snipeTarget.endT - os.clock()) <= self.time + .6 and (snipeTarget.endT - os.clock()) >= self.time + .3 and self:BaseUltPredictIfUltCanKill(snipeTarget) then
+            if (snipeTarget.endT - os.clock()) <= self.time + 1 and (snipeTarget.endT - os.clock()) >= self.time + .6 and self:BaseUltPredictIfUltCanKill(snipeTarget) then
                 CastSpell(_R, self:BaseUltGetBaseCoords().x, self:BaseUltGetBaseCoords().z)
             end
         end
@@ -248,7 +248,7 @@ function Jinx:OnDraw()
         if LulzMenu.Spell.RMenu.BaseUlt and LulzMenu.Draw.RSettings.BaseUlt then
             for i, enemy in pairs(self.activeRecalls) do
                  if self:BaseUltPredictIfUltCanKill(enemy) then
-                     BaseUltProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self:BaseUltGetBaseCoords()) / 2500) + .6) / 8 * 100)
+                     BaseUltProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self:BaseUltGetBaseCoords()) / 2500) + 1) / 8 * 100)
                  end
             end
         end
