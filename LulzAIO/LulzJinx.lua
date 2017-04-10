@@ -7,15 +7,14 @@ function Jinx:__init()
     self.QState, self.WState, self.EState = nil, nil, nil
     self.manaPercent = nil
     self.print,self.PrintChat = _G.print, _G.PrintChat
-    self.lastBardRCoords = {x = 0, z = 0, time = 0, ulted = false}
-    self.castTime = 0
+    self.QToggle = nil
+
     self.SpellTable = {
         Q = {range = 1150, speed = 2000, delay = 0.25, width = 75, collision = true},
-        W = {range = 1000, speed = 1550, delay = 0.25, width = 100, collision = false},
+        W = {range = 1500, speed = 3200, delay = 0.25, width = 100, collision = false},
         E = {range = 475, maxRange = 750},
         R = {range = 9999, speed = 2500, delay = .6, width = 150, collision = true}
     }
-
     self.spellDmg = {
         [_Q] = function(unit) if self.QState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 20) + 15) + (myHero.ap * 0.4)) + (myHero.totalDamage * 1.1))) end end,
         [_W] = function(unit) if self.WState then return myHero:CalcMagicDamage(unit, (((myHero:GetSpellData(_W).level * 45) + 25) + (myHero.ap * 0.8))) end end,
@@ -28,7 +27,7 @@ function Jinx:__init()
             }
 
     self.enemyHeros = GetEnemyHeroes()
-    self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.Q.range - 400, myHero, MINION_SORT_HEALTH_ASC)
+    self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.W.range, myHero, MINION_SORT_HEALTH_ASC)
     self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MAXHEALTH_ASC)
 
     self.recallStatus = {}
@@ -44,11 +43,6 @@ function Jinx:__init()
 
     for i, enemy in pairs(self.enemyHeros) do
     	self.recallStatus[enemy.charName] = enemy.recall
-    end
-    for i, hero in pairs(GetAllyHeroes()) do
-        if self.autoRTable[hero.charName] then
-            LulzMenu.Spell.RMenu:addParam(hero.charName, "Use on " .. hero.charName .. " Ultimate", 1, true)
-        end
     end
 
     self:AddToMenu()
@@ -188,6 +182,7 @@ function Jinx:OnTick()
     self.WState = myHero:CanUseSpell(_W) == READY
     self.EState = myHero:CanUseSpell(_E) == READY
     self.RState = myHero:CanUseSpell(_R) == READY
+    self.QToggle = GetSpellData(_Q).toggleState
     self.manaPercent = myHero.mana / myHero.maxMana * 100
     _G.Target = Orbwalker:GetOrbwalkerTarget(1100)
 
@@ -218,7 +213,7 @@ function Jinx:OnDraw()
             DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, ReturnColor(LulzMenu.Draw.AASettings.CircleColor), 100)
         end
         if LulzMenu.Draw.QSettings.Enabled and (self.QState or not LulzMenu.Draw.QSettings.Hide) then
-            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, ReturnColor(LulzMenu.Draw.QSettings.CircleColor), 100)
+            --DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, ReturnColor(LulzMenu.Draw.QSettings.CircleColor), 100)
         end
         if LulzMenu.Draw.WSettings.Enabled and (self.WState or not LulzMenu.Draw.WSettings.Hide) then
             DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.range, 1, ReturnColor(LulzMenu.Draw.WSettings.CircleColor), 100)
@@ -272,11 +267,8 @@ function Jinx:BaseUltPredictIfUltCanKill(target)
 end
 function Jinx:CastQ(enemy)
     if self.QState then
-        local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.Q, "Q")
-        if CastPosition and HitChance >= LulzMenu.Spell.QMenu.Accuracy then
-            if Info ~= nil and Info.collision ~= nil and not Info.collision or Info == nil or Info.collision == nil then
-                CastSpell(_Q, CastPosition.x, CastPosition.z)
-            end
+        if (GetDistanceSqr(enemy) > math.pow(myHero.range + myHero.boundingRadius,2) and self.QToggle == 1) or (GetDistanceSqr(enemy) < math.pow(myHero.range + myHero.boundingRadius,2) and self.QToggle == 2) then
+            CastSpell(_Q)
         end
     end
 end
