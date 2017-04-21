@@ -64,7 +64,7 @@ local function CreateBaseMenu()
         LulzMenu.General:addSubMenu("Auto Leveler", "Level")
             LulzMenu.General.Level:addParam("Enable", "Enable Auto Leveler", 1, true)
             LulzMenu.General.Level:addParam("Ignore", "Ignore First 3 Levels", 1, true)
-            LulzMenu.General.Level:addParam("Sequence", "Leveling Sequence", SCRIPT_PARAM_LIST, 1,{'Q>E>W', 'Q>W>E', 'W>Q>E', 'W>E>Q', 'E>Q>W'})
+            LulzMenu.General.Level:addParam("Sequence", "Leveling Sequence", SCRIPT_PARAM_LIST, 1,{'Q>E>W', 'Q>W>E', 'W>Q>E', 'W>E>Q', 'E>Q>W', 'E>W>Q'})
         LulzMenu.General:addSubMenu("Auto Buy", "Buy")
             LulzMenu.General.Buy:addParam("StartingItems", "Purchase Starting Items", 1, true)
 		    LulzMenu.General.Buy:addParam("TrinketSwitch", "Auto Switch Trinket At 9", SCRIPT_PARAM_LIST, 2, {"Off","Blue","Red"})
@@ -131,6 +131,176 @@ function Xayah:__init()
         [_R] = function(unit) if self.RState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_R).level * 150) + 200) + (myHero.ap * 0.9)) + myHero.addDamage)) end end
     }
     self.feathers = {}
+    --[[
+    type 1 = distance check
+    type 2 = line/cone skillshot w/ collision
+    type 3 = line/cone skillshot w/o collision
+    type 4 = circular skillshot
+    type 5 = targeted
+    ]]
+    self.jukeTable = {
+    	["Aatrox"] = {
+    		{type = 4, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Ahri"] = {
+    		{type = 2, range = 800,  spell = _E, name = "E"},
+    	},
+    	["Alistar"] = {
+    		{type = 2, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Amumu"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    		{type = 2, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Anivia"] = {
+    		{type = 3, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Annie"] = {
+    		{type = 5, range = 1200, spell = _Q, name = "Q"},
+    		{type = 3, range = 1200, spell = _W, name = "W"},
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+
+    	},
+    	["Ashe"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Azir"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Bard"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Blitzcrank"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    		{type = 2, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Brand"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Braum"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Cassiopeia"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["ChoGath"] = {
+    		{type = 4, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Draven"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Ezreal"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Fiddlesticks"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Fizz"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Gangplank"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Gragas"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Graves"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Hecarim"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Illaoi"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Ivern"] = {
+    		{type = 3, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Jinx"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Karthus"] = {
+    		{type = 6, range = 800,  spell = _R, name = "R" delay = 1},
+    	},
+    	["Katarina"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Kennen"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Leona"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Lux"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Malphite"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["MissFortune"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Morgana"] = {
+    		{type = 6, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Nami"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Nautilus"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Nunu"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Orianna"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Riven"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Rumble"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Sejuani"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Sona"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Syndra"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Tristana"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Veigar"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["VelKoz"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Vi"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Viktor"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Warwick"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Wukong"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Zed"] = {
+    		{type = 6, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Ziggs"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Zyra"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    }
 
     self.enemyHeros = GetEnemyHeroes()
     self.allyHeros = GetAllyHeroes()
@@ -142,6 +312,7 @@ function Xayah:__init()
     AddDrawCallback(function() self:OnDraw() end)
     AddCreateObjCallback(function(object) self:TrackFeathers(object) end)
     AddDeleteObjCallback(function(object) self:TrackFeathersDelete(object) end)
+    AddProcessSpellCallback(function(unit, spell) self:UltimateJuke(unit,spell) end)
 end
 function Xayah:AddToMenu()
     LulzMenu.Draw.RSettings:addParam("BaseUlt", "Draw baseult tracker", 1, true)
@@ -188,6 +359,19 @@ function Xayah:AddToMenu()
     LulzMenu.Spell.RMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
     LulzMenu.Spell.RMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
     Prediction:AddToMenu(LulzMenu.Spell.RMenu)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder3", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder4", "Ultimate Juke Settings", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.RMenu:addParam("EnableJuke", "Enable juking with ultimate", 1, true)
+    LulzMenu.Spell.RMenu:addParam("Collision", "Check collision when needed", 1, true)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder5", "", SCRIPT_PARAM_INFO, "")
+    --LulzMenu.Spell.RMenu:modifyParam("PlaceHolder4", "lBgColor", ARGB(255,255,255,255))
+    for i, enemy in pairs(self.enemyHeros) do
+        if self.jukeTable[enemy.charName] then
+            for i=1, #self.jukeTable[enemy.charName] do
+                LulzMenu.Spell.RMenu:addParam(enemy.charName..self.jukeTable[enemy.charName][i].name, enemy.charName.." "..self.jukeTable[enemy.charName][i].name, 1, true)
+            end
+        end
+    end
 end
 function Xayah:GetDamage(spell, unit)
     if spell == "ALL" then
@@ -446,12 +630,6 @@ function Xayah:KillSteal()
                     self:CastW(enemy)
                 end
             end
-
-            if LulzMenu.Hotkeys.ForceUlt then
-                if self.RState and self:GetDamage(_R, enemy) > enemy.health and GetDistance(enemy) < LulzMenu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > LulzMenu.Spell.RMenu.SnipeRangeCheckMin then
-                    self:CastR(enemy)
-                end
-            end
         end
     end
 end
@@ -477,6 +655,36 @@ function Xayah:TrackFeathersDelete(object)
     if object and object.valid and object.networkID and object.networkID ~= 0 then
         if object.name:find("Xayah_Base_Passive_Dagger_Mark") then
             self.feathers[object.networkID] = nil
+        end
+    end
+end
+function Xayah:UltimateJuke(unit,spell)
+    local function IsOnPath(Target, spellEndPos, range)
+        local LineEnd = Target + (Vector(spellEndPos) - Target):normalized() * range
+        local pointSegment, pointLine, isOnSegment = VectorPointProjectionOnLineSegment(Vector(Target), LineEnd, Vector(myHero))
+        if isOnSegment and GetDistance(myHero, pointSegment) <= 85*1.25 then
+            return true
+        end
+        return false
+    end
+    if not LulzMenu.Spell.RMenu.EnableJuke then return end
+    if unit.team ~= myHero.team then
+        if self.jukeTable[unit.charName] then
+            for i=1, #self.jukeTable[unit.charName] do
+                if unit:GetSpellData(self.jukeTable[unit.charName][i].spell).name == spell.name then
+                    if LulzMenu.Spell.RMenu[unit.charName..self.jukeTable[unit.charName][i].name] then
+                        if self.jukeTable[unit.charName][i].type == 1 then
+                            if GetDistanceSqr(unit) < self.jukeTable[unit.charName][i].range * self.jukeTable[unit.charName][i].range then
+                                CastSpell(_R, unit.x, unit.z)
+                            end
+                        elseif self.jukeTable[unit.charName][i].type == 2 then
+                            if IsOnPath(unit, spell.endPos, self.jukeTable[unit.charName][i].range) then
+                                CastSpell(_R, unit.x, unit.z)
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
 end
@@ -890,7 +1098,8 @@ function ItemsAndSummoners:AutoLeveler()
             {1,2,3,1,1,4,1,2,1,2,4,2,2,3,3,4,3,3},
             {2,1,3,2,2,4,2,1,2,1,4,1,1,3,3,4,3,3},
             {2,3,1,2,2,4,2,3,2,3,4,3,3,1,1,4,1,1},
-            {3,1,3,2,3,4,3,1,3,1,4,1,1,2,2,4,2,2}
+            {3,1,3,2,3,4,3,1,3,1,4,1,1,2,2,4,2,2},
+            {3,2,3,1,3,4,3,2,3,2,4,2,2,1,1,4,1,1},
         }
         autoLevelSetSequence(self.abilitySequence[LulzMenu.General.Level.Sequence])
 	end
@@ -1483,16 +1692,15 @@ function Orbwalker:IsLastHitting()
         return LulzMenu.Orbwalker.LaneClear
     end
 end
-function Orbwalker:GetOrbwalkerTarget(range)
+function Orbwalker:GetOrbwalkerTarget()
     if orbwalker == "SAC:R" then
-        _G.AutoCarry.Crosshair:SetSkillCrosshairRange(range)
         return _G.AutoCarry.SkillsCrosshair.target
     elseif orbwalker == "MMA" then
-        return _G.MMA_Target(range)
+        return _G.MMA_Target()
     elseif orbwalker == "PEWalk" then
-        return _G._Pewalk.GetTarget(range)
+        return _G._Pewalk.GetTarget()
     elseif orbwalker == "SX" then
-        return SxOrb:GetTarget(range)
+        return SxOrb:GetTarget()
     end
 end
 function Orbwalker:ForceTarget(target)
