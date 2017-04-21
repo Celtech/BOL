@@ -1,7 +1,13 @@
-function Log(message)
+local pi, pi2, sin, cos, huge, sqrt, floor, ceil, max, random, round = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round
+local clock = os.clock
+local pairs, ipairs = pairs, ipairs
+local insert, remove = table.insert, table.remove
+local TEAM_ALLY, TEAM_ENEMY
+
+local function Log(message)
     print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>"..message.."</font>")
 end
-function CreateBaseMenu()
+local function CreateBaseMenu()
     _G.LulzMenu = scriptConfig("Lulz"..myHero.charName, myHero.charName .. "lulz")
     LulzMenu:addSubMenu("Drawing Menu", "Draw")
         LulzMenu.Draw:addSubMenu("AA Settings", "AASettings")
@@ -27,6 +33,7 @@ function CreateBaseMenu()
         LulzMenu.Draw:addParam("StreamMode", "Enable Streaming Mode(F7)", SCRIPT_PARAM_ONKEYTOGGLE, false, 118)
         LulzMenu.Draw:addParam("DrawTarget", "Draw Target", 1, true)
         LulzMenu.Draw:addParam("LowFPS", "Use LowFPS Circles", 1, true)
+        LulzMenu.Draw:addParam("Quality", 'LowFPS Circle Quality', SCRIPT_PARAM_SLICE, 20, 10, 200, 0)
     LulzMenu:addSubMenu("Spells Menu & Masteries", "Spell")
         LulzMenu.Spell:addSubMenu("Q Menu", "QMenu")
         LulzMenu.Spell:addSubMenu("W Menu", "WMenu")
@@ -64,7 +71,6 @@ function CreateBaseMenu()
         LulzMenu.General:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         LulzMenu.General:addParam("Lane", "Get to lane faster", 1, true)
         LulzMenu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
-        LulzMenu.General:addParam("Focus", "Left Click To Focus", SCRIPT_PARAM_LIST, 2, {"Never","For 1 Minute", "Until Removed"})
     LulzMenu:addSubMenu("Hotkeys Menu", "Hotkeys")
         LulzMenu.Hotkeys:addParam("ForceUlt", "Ult execute keybinding", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
         LulzMenu.Hotkeys:addParam("FleeKey", "Flee Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("G"))
@@ -77,12 +83,20 @@ function CreateBaseMenu()
         SetSkin(myHero, v - 1)
     end)
 end
+local function RenderCircle(size, menu)
+    local function ReturnColor(color) return ARGB(color[1],color[2],color[3],color[4]) end
+
+    if LulzMenu.Draw.LowFPS then
+        DrawCircle3D(myHero.x, myHero.y, myHero.z, size, 1, ReturnColor(menu.CircleColor), LulzMenu.Draw.Quality)
+    else
+        DrawCircle(myHero.x, myHero.y, myHero.z, size, ReturnColor(menu.CircleColor))
+    end
+end
 
 function OnLoad()
     local version = 0.15
     CheckUpdatesLib()
     CheckUpdates(version)
-    DownloadChampion()
 
     if _G.Lulzlib then
         CreateBaseMenu()
@@ -95,9 +109,1236 @@ function OnLoad()
         Humanizer()
         ThreshLantern()
     end
+
+    _G[myHero.charName]()
 end
 function OnUnload()
     SetSkin(myHero, -1)
+end
+
+class "Ezreal"
+function Ezreal:__init()
+    self.QState, self.WState, self.EState = nil, nil, nil
+    self.manaPercent = nil
+    self.print,self.PrintChat = _G.print, _G.PrintChat
+    self.lastBardRCoords = {x = 0, z = 0, time = 0, ulted = false}
+    self.castTime = 0
+    self.SpellTable = {
+        Q = {range = 1150, speed = 2000, delay = 0.25, width = 75, collision = true},
+        W = {range = 1000, speed = 1550, delay = 0.25, width = 100, collision = false},
+        E = {range = 475, maxRange = 750},
+        R = {range = 9999, speed = 2000, delay = 1, width = 150, collision = false}
+    }
+    self.autoRTable = {
+        ["Malphite"] = {name = "UFSlash", range = 300},
+        ["Orianna"] = {name = "OrianaDetonateCommand", range = 400},
+        ["Annie"] = {name = "InfernalGuardian", range = 250},
+        ["Leona"] = {name = "LeonaSolarFlare", range = 300},
+        ["Yasuo"] = {name = "YasuoRDummySpell", range = 400},
+        ["Bard"] = {name = "BardR", range = 350},
+    }
+    self.spellDmg = {
+        [_Q] = function(unit) if self.QState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 20) + 15) + (myHero.ap * 0.4)) + (myHero.totalDamage * 1.1))) end end,
+        [_W] = function(unit) if self.WState then return myHero:CalcMagicDamage(unit, (((myHero:GetSpellData(_W).level * 45) + 25) + (myHero.ap * 0.8))) end end,
+        [_E] = function(unit) if self.EState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_E).level * 50) + 25) + (myHero.ap * 0.75)) + (myHero.addDamage * 0.5))) end end,
+        [_R] = function(unit) if self.RState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_R).level * 150) + 200) + (myHero.ap * 0.9)) + myHero.addDamage)) end end
+    }
+    self.BaseSpots = {
+                D3DXVECTOR3(396,182.132,462),
+                D3DXVECTOR3(14340.418,171.9777,14391.075)
+            }
+
+    self.enemyHeros = GetEnemyHeroes()
+    self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.Q.range - 400, myHero, MINION_SORT_HEALTH_ASC)
+    self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MAXHEALTH_ASC)
+
+    self.recallStatus = {}
+    self.recallTimes = {
+    	['recall'] = 7.9,
+    	['odinrecall'] = 4.4,
+    	['odinrecallimproved'] = 3.9,
+    	['recallimproved'] = 6.9,
+    	['superrecall'] = 3.9,
+    }
+    self.activeRecalls = {}
+    self.lasttime={}
+
+    for i, enemy in pairs(self.enemyHeros) do
+    	self.recallStatus[enemy.charName] = enemy.recall
+    end
+    for i, hero in pairs(GetAllyHeroes()) do
+        if self.autoRTable[hero.charName] then
+            LulzMenu.Spell.RMenu:addParam(hero.charName, "Use on " .. hero.charName .. " Ultimate", 1, true)
+        end
+    end
+
+    self:AddToMenu()
+    AddTickCallback(function() self:OnTick() end)
+    AddTickCallback(function()
+    	for i, enemy in pairs(self.enemyHeros) do
+    		if enemy.recall ~= self.recallStatus[enemy.charName] then
+    			self:recallFunction(enemy, enemy.recall)
+    		end
+    		self.recallStatus[enemy.charName] = enemy.recall
+    	end
+    end)
+    AddDrawCallback(function() self:OnDraw() end)
+    AddProcessSpellCallback(function(unit, spell) self:AutoR(unit, spell) end)
+end
+function Ezreal:BaseUlt()
+    if not myHero.dead and LulzMenu.Spell.RMenu.BaseUlt then
+        self.time = GetDistance(myHero, self.BaseSpots[2]) / 2000
+        for i, snipeTarget in pairs(self.activeRecalls) do
+            if (snipeTarget.endT - os.clock()) <= self.time + 1 and (snipeTarget.endT - os.clock()) >= self.time + .5 and self:BaseUltPredictIfUltCanKill(snipeTarget) then
+                CastSpell(_R, self:BaseUltGetBaseCoords().x, self:BaseUltGetBaseCoords().z)
+            end
+        end
+    end
+end
+function Ezreal:recallFunction(Hero, Status)
+	local o = Hero
+	if o and o.valid and o.type == 'AIHeroClient' then
+		local str = Status
+		if self.recallTimes[str:lower()] then
+			if LulzMenu.General.Verbose then
+				if not o.visible and self.lasttime[o.networkID]  then
+					print(r.name.." is recalling. Last seen "..string.format("%.1f", os.clock() -self.lasttime[o.networkID], 1).." seconds ago." )
+				end
+			end
+			self.activeRecalls[o.networkID] = {
+            					name = o.charName,
+            					startT = os.clock(),
+            					duration = self.recallTimes[str:lower()],
+            					endT = os.clock() + self.recallTimes[str:lower()],
+                                startHP = o.health,
+                                hpRegen = o.hpRegen,
+                                object = o
+            				}
+			return
+		elseif self.activeRecalls[o.networkID] then
+			if self.activeRecalls[o.networkID] and self.activeRecalls[o.networkID].endT > os.clock() then
+				if LulzMenu.General.Verbose then
+					print(self.activeRecalls[o.networkID].name.." canceled recall")
+				end
+				recallTime = nil
+				recallName = nil
+				blockName = nil
+				self.activeRecalls[o.networkID] = nil
+				return
+			else
+				if junglerName == self.activeRecalls[o.networkID].name then
+					jungleText = "Recalled"
+				end
+				if LulzMenu.General.Verbose then
+					print(self.activeRecalls[o.networkID].name.." finished recall")
+				end
+				self.activeRecalls[o.networkID] = nil
+				recallTime = nil
+				recallName = nil
+				blockName = nil
+				return
+			end
+		end
+	end
+end
+function Ezreal:AddToMenu()
+    LulzMenu.Draw.RSettings:addParam("BaseUlt", "Draw baseult tracker", 1, true)
+
+    LulzMenu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 1,{"Off","Last Hit","Clear"})
+    LulzMenu.Spell.QMenu:addParam("EnableJungle", "Use in jungle", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableKs", "Use to KS", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableFlee", "Use to flee with iceborn", 1, true)
+    LulzMenu.Spell.QMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.QMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+    LulzMenu.Spell.QMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.QMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+    Prediction:AddToMenu(LulzMenu.Spell.QMenu)
+
+    LulzMenu.Spell.WMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.WMenu:addParam("EnableHarass", "Use in harass", 1, false)
+    LulzMenu.Spell.WMenu:addParam("EnableClear", "Use in clear", 1, false)
+    LulzMenu.Spell.WMenu:addParam("EnableKs", "Use to KS", 1, true)
+    LulzMenu.Spell.WMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.WMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+    LulzMenu.Spell.WMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.WMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+    Prediction:AddToMenu(LulzMenu.Spell.WMenu)
+
+    LulzMenu.Spell.EMenu:addParam("Enable", "Use as gap closer", SCRIPT_PARAM_LIST, 1,{"Never", "Combo", "Combo+Harass"})
+    LulzMenu.Spell.EMenu:addParam("EnableKs", "Use to KS", 1, true)
+    LulzMenu.Spell.EMenu:addParam("EnableFlee", "Use to flee", 1, true)
+    LulzMenu.Spell.EMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.EMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+
+    LulzMenu.Spell.RMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.RMenu:addParam("ComboRangeCheck", "Combo ult range check", SCRIPT_PARAM_SLICE, 800, 0, 9000, 0)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder44", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.RMenu:addParam("BaseUlt", "Enable base ult", 1, true)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder3", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.RMenu:addParam("EnableSnipe", "Ult to global snipe", 1, true)
+    LulzMenu.Spell.RMenu:addParam("SnipeRangeCheckMax", "Global snipe max range check", SCRIPT_PARAM_SLICE, 1500, 300, 9000, 0)
+    LulzMenu.Spell.RMenu:setCallback("SnipeRangeCheckMax", function(v)
+        LulzMenu.Spell.RMenu:removeParam("SnipeRangeCheckMin")
+        LulzMenu.Spell.RMenu:addParam("SnipeRangeCheckMin", "Global snipe min range check", SCRIPT_PARAM_SLICE, 1500, 0, v, 0)
+        if LulzMenu.Spell.RMenu.SnipeRangeCheckMin > v then LulzMenu.Spell.RMenu.SnipeRangeCheckMin = v - 300 end
+    end)
+    LulzMenu.Spell.RMenu:addParam("SnipeRangeCheckMin", "Global snipe min range check", SCRIPT_PARAM_SLICE, 1200, 0, 9000, 0)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder23", "", SCRIPT_PARAM_INFO, "")
+
+
+    LulzMenu.Spell.RMenu:addParam("EnableInitiator", "Use on initiators", 1, true)
+    LulzMenu.Spell.RMenu:addParam("InitiatorRangeCheck", "Initiators ult range check", SCRIPT_PARAM_SLICE, 2000, 0, 9000, 0)
+    LulzMenu.Spell.RMenu:addParam("InitiateNum", "Min number of enemies to ult", SCRIPT_PARAM_SLICE, 1, 1, 5, 0)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+    Prediction:AddToMenu(LulzMenu.Spell.RMenu)
+end
+function Ezreal:GetDamage(spell, unit)
+    if spell == "ALL" then
+        local sum = 0
+          for spell, func in pairs(self.spellDmg) do
+            sum = sum + (func(unit) or 0)
+          end
+         return sum
+       else
+          return self.spellDmg[spell](unit) or 0
+       end
+end
+function Ezreal:OnTick()
+    self.QState = myHero:CanUseSpell(_Q) == READY
+    self.WState = myHero:CanUseSpell(_W) == READY
+    self.EState = myHero:CanUseSpell(_E) == READY
+    self.RState = myHero:CanUseSpell(_R) == READY
+    self.manaPercent = myHero.mana / myHero.maxMana * 100
+    _G.Target = Orbwalker:GetOrbwalkerTarget(1100)
+
+    self:Combo()
+    self:Harass()
+    self:LaneClear()
+    self:GetToLaneFaster()
+    --self:KillSteal()
+    self:FleeMode()
+    self:TearStack()
+    self:BaseUlt()
+end
+function Ezreal:OnDraw()
+    local function ReturnColor(color) return ARGB(color[1],color[2],color[3],color[4]) end
+    local function BaseUltProgressBar(x, y, percent, text, tick)
+        DrawRectangle(x, y - 5, 300, 40, ARGB(255,100,100,100))
+        DrawRectangle(x + 5, y, 290, 30, ARGB(255,30,30,30))
+        DrawRectangle(x + 5, y, (percent/100)*290, 30, ARGB(255,255,0,0))
+        DrawRectangle(x + (6.9 / 7.9 * 290), y, (100/100)*290 - x + (6.9 / 7.9 * 290), 30, ARGB(100,30,30,30))
+        if tick <= 100 then
+            DrawRectangle(x + 5 + (tick/100)*290, y, 2, 30, ARGB(255,0,255,0))
+        else
+            DrawRectangle(x + 5 + (100/100)*290, y, 2, 30, ARGB(255,0,255,0))
+        end
+        DrawText(text,20,y + 8,x + 5,ARGB(255,255,255,255))
+    end
+
+    if not myHero.dead then
+        if LulzMenu.Draw.AASettings.Enabled then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, ReturnColor(LulzMenu.Draw.AASettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.QSettings.Enabled and (self.QState or not LulzMenu.Draw.QSettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, ReturnColor(LulzMenu.Draw.QSettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.WSettings.Enabled and (self.WState or not LulzMenu.Draw.WSettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.range, 1, ReturnColor(LulzMenu.Draw.WSettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.ESettings.Enabled and (self.EState or not LulzMenu.Draw.ESettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.range, 1, ReturnColor(LulzMenu.Draw.ESettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.ESettings.Enabled and (self.EState or not LulzMenu.Draw.ESettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.maxRange, 1, ReturnColor(LulzMenu.Draw.ESettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.RSettings.Enabled and (self.RState or not LulzMenu.Draw.RSettings.Hide) then
+            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, LulzMenu.Spell.RMenu.SnipeRangeCheckMax, 1, ReturnColor(LulzMenu.Draw.RSettings.CircleColor), 50)
+            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, LulzMenu.Spell.RMenu.SnipeRangeCheckMin, 1, ReturnColor(LulzMenu.Draw.RSettings.CircleColor), 50)
+            for i, enemy in pairs(self.enemyHeros) do
+                if enemy and ValidTarget(enemy) then
+                    if self.RState and self:GetDamage(_R,enemy) > enemy.health and GetDistance(enemy) < LulzMenu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > LulzMenu.Spell.RMenu.SnipeRangeCheckMin then
+                        DrawTextA("You can kill 1 or more enemies, Hold your Force ult key!", 25, WINDOW_H / 2, 50, ARGB(255,255,0,0), "center", "center")
+                    end
+                end
+            end
+        end
+        if LulzMenu.Draw.DrawTarget then
+            if Target ~= nil then
+                DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
+            end
+        end
+        if LulzMenu.Spell.RMenu.BaseUlt and LulzMenu.Draw.RSettings.BaseUlt then
+            for i, enemy in pairs(self.activeRecalls) do
+                 if self:BaseUltPredictIfUltCanKill(enemy) then
+                     BaseUltProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self:BaseUltGetBaseCoords()) / 2000) + 1) / 8 * 100)
+                 end
+            end
+        end
+    end
+end
+function Ezreal:BaseUltGetBaseCoords()
+    if myHero.team == 100 then
+        return self.BaseSpots[2]
+    else
+        return self.BaseSpots[1]
+    end
+end
+function Ezreal:BaseUltPredictIfUltCanKill(target)
+    if myHero.charName == "Ezreal" or myHero.charName == "Jinx" or myHero.charName == "Draven" or myHero.charName == "Ashe" then
+        if self:GetDamage(_R, target.object) > target.startHP + (target.hpRegen * 7.9)  then
+            return true
+        else
+            return false
+        end
+    end
+end
+function Ezreal:GetToLaneFaster()
+	local function inCircle(cx,cz,x,z,r)
+		if (math.pow(cx-x,2)+math.pow(cz-z,2)<math.pow(r,2)) then
+			return true
+		else
+			return false
+		end
+	end
+
+	if LulzMenu.General.Lane then
+		for _, i in pairs(GetTurrets()) do
+			if i.range == 1050 then
+				if not inCircle(myHero.x, myHero.z, i.x, i.z, 900) and inCircle(myHero.x, myHero.z, i.x, i.z, 1050) and self.EState and not inCircle(myHero.endPath.x, myHero.endPath.z, i.x, i.z, 1050) then
+					CastSpell(_E, myHero.endPath.x, myHero.endPath.z)
+				end
+			end
+		end
+	end
+end
+function Ezreal:CastQ(enemy)
+    if self.QState then
+        local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.Q, "Q")
+        if CastPosition and HitChance >= LulzMenu.Spell.QMenu.Accuracy then
+            if Info ~= nil and Info.collision ~= nil and not Info.collision or Info == nil or Info.collision == nil then
+                CastSpell(_Q, CastPosition.x, CastPosition.z)
+            end
+        end
+    end
+end
+function Ezreal:CastW(enemy)
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.W, "W")
+    if CastPosition and HitChance >= LulzMenu.Spell.WMenu.Accuracy then
+        CastSpell(_W, CastPosition.x, CastPosition.z)
+    end
+end
+function Ezreal:CastE(x,z)
+    if self.EState then
+        CastSpell(_E, x, z)
+    end
+end
+function Ezreal:CastR(enemy)
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.R)
+    if CastPosition and HitChance >= LulzMenu.Spell.RMenu.Accuracy then
+        CastSpell(_R, CastPosition.x, CastPosition.z)
+    end
+end
+function Ezreal:Combo()
+    if Orbwalker:IsFighting() then
+        if ValidTarget(Target) then
+            if self.QState then
+                self:CastQ(Target)
+            end
+
+            if self.WState then
+                self:CastW(Target)
+            end
+        end
+    end
+end
+function Ezreal:Harass()
+    if Orbwalker:IsHarassing() then
+        if ValidTarget(Target) then
+            if self.QState and LulzMenu.Spell.QMenu.EnableHarass then
+                self:CastQ(Target)
+            end
+
+            if self.WState and LulzMenu.Spell.WMenu.EnableHarass then
+                self:CastW(Target)
+            end
+        end
+    end
+end
+function Ezreal:LaneClear()
+    if Orbwalker:IsLaneClearing() then
+        if LulzMenu.Spell.QMenu.EnableJungle then
+            self.jungleMinions:update()
+
+            if self.QState then
+                for i, jungle in pairs(self.jungleMinions.objects) do
+                    if jungle ~= nil and ValidTarget(jungle) and GetDistance(jungle) < self.SpellTable.Q.range and string.split(jungle.charName,'_')[2] ~= "Plant" then
+                        self:CastQ(jungle)
+                    end
+                end
+            end
+        end
+
+        if LulzMenu.Spell.QMenu.EnableClear > 1 then
+            self.enemyMinions:update()
+            if self.QState then
+                for i, minion in pairs(self.enemyMinions.objects) do
+                    if minion ~= nil and ValidTarget(minion) and GetDistance(minion) < self.SpellTable.Q.range then
+                        if LulzMenu.Spell.QMenu.EnableClear == 3 then
+                            self:CastQ(minion)
+                        else
+                            if self:GetDamage(_Q, minion) > minion.health then
+                                self:CastQ(minion)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+function Ezreal:KillSteal()
+    for i, enemy in pairs(self.enemyHeros) do
+        if enemy and ValidTarget(enemy) then
+            if LulzMenu.Spell.EMenu.EnableKs then
+                if GetDistance(enemy) > self.SpellTable.Q.range and GetDistance(enemy) < (self.SpellTable.Q.range + self.SpellTable.E.range) then
+                    if enemy.health < (getDmg("Q", enemy, myHero)+((myHero.damage)*1.1)+(myHero.ap*0.4)) then
+                        local p = myHero + (Vector(enemy.pos) - myHero):normalized() * 475
+                        self:CastE(p.x,p.z)
+                        DelayAction((function() self:CastQ(enemy) end), .3)
+
+                    end
+                end
+            end
+
+            if LulzMenu.Spell.QMenu.EnableKs then
+                if self:GetDamage(_Q, enemy) > enemy.health and enemy.health < self:GetDamage(_W, enemy) then
+                    self:CastQ(enemy)
+                end
+            end
+
+            if LulzMenu.Spell.WMenu.EnableKs then
+                if self:GetDamage(_Q, enemy) < enemy.health and enemy.health > self:GetDamage(_W, enemy) then
+                    self:CastW(enemy)
+                end
+            end
+
+            if LulzMenu.Hotkeys.ForceUlt then
+                if self.RState and self:GetDamage(_R, enemy) > enemy.health and GetDistance(enemy) < LulzMenu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > LulzMenu.Spell.RMenu.SnipeRangeCheckMin then
+                    self:CastR(enemy)
+                end
+            end
+        end
+    end
+end
+function Ezreal:FleeMode()
+    if LulzMenu.Hotkeys.FleeKey then
+        myHero:MoveTo(mousePos.x, mousePos.z)
+
+        if LulzMenu.Spell.QMenu.EnableFlee then
+            if ItemsAndSummoners:HasItem(3025) then
+                self:CastQ(Target)
+            end
+        end
+    end
+end
+function Ezreal:TearStack()
+    if LulzMenu.Hotkeys.Stack then
+        if ItemsAndSummoners:HasItem(3070) or ItemsAndSummoners:HasItem(3004) then
+            local castqpos = myHero + (Vector(mousePos) - myHero):normalized() * 300
+            CastSpell(_Q, castqpos.x, castqpos.z)
+        end
+    end
+end
+function Ezreal:AutoR(unit, spell)
+    if not LulzMenu.Spell.RMenu.EnableInitiator or unit.isMe then return end
+    if unit.team == myHero.team then
+        if LulzMenu.Spell.RMenu[unit.charName] then
+            if GetDistanceSqr(spell.endPos) <= LulzMenu.Spell.RMenu.InitiatorRangeCheck * LulzMenu.Spell.RMenu.InitiatorRangeCheck then
+                if self.autoRTable[unit.charName].name == spell.name then
+                    if ItemsAndSummoners:CountEnemiesNearUnitReg(spell.endPos, self.autoRTable[unit.charName].range) >= LulzMenu.Spell.RMenu.InitiateNum then
+                        if self.RState then
+                            if unit.charName == "Yasuo" then
+                                CastSpell(_R, unit.x, unit.z)
+                            elseif unit.charName == "Bard" then
+                                --self.lastBardRCoords.time = os.clock() + math.abs(((GetDistance(spell.endPos) / 2000) + 1) - ((GetDistance(spell.endPos, unit) / 2100) + 3.5))
+                                --self.lastBardRCoords.z = spell.endPos.z
+                                --self.lastBardRCoords.x = spell.endPos.x
+                                --self.lastBardRCoords.ulted = true
+                            else
+                                CastSpell(_R, spell.endPos.x, spell.endPos.z)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+
+class "Jinx"
+function Jinx:__init()
+    self.QState, self.WState, self.EState = nil, nil, nil
+    self.manaPercent = nil
+    self.print,self.PrintChat = _G.print, _G.PrintChat
+    self.QToggle = nil
+
+    self.SpellTable = {
+        Q = {range = 1150, speed = 2000, delay = 0.25, width = 75, collision = true},
+        W = {range = 1500, speed = 3200, delay = 0.25, width = 100, collision = true},
+        E = {range = 475, maxRange = 750},
+        R = {range = 9999, speed = 2500, delay = .6, width = 150, collision = true}
+    }
+    self.spellDmg = {
+        [_Q] = function(unit) if self.QState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 20) + 15) + (myHero.ap * 0.4)) + (myHero.totalDamage * 1.1))) end end,
+        [_W] = function(unit) if self.WState then return myHero:CalcMagicDamage(unit, (((myHero:GetSpellData(_W).level * 45) + 25) + (myHero.ap * 0.8))) end end,
+        [_E] = function(unit) if self.EState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_E).level * 50) + 25) + (myHero.ap * 0.75)) + (myHero.addDamage * 0.5))) end end,
+        [_R] = function(unit) if self.RState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_R).level * 150) + 200) + (myHero.ap * 0.9)) + myHero.addDamage)) end end
+    }
+    self.BaseSpots = {
+                D3DXVECTOR3(396,182.132,462),
+                D3DXVECTOR3(14340.418,171.9777,14391.075)
+            }
+
+    self.enemyHeros = GetEnemyHeroes()
+    self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.W.range, myHero, MINION_SORT_HEALTH_ASC)
+    self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MAXHEALTH_ASC)
+
+    self.recallStatus = {}
+    self.recallTimes = {
+    	['recall'] = 7.9,
+    	['odinrecall'] = 4.4,
+    	['odinrecallimproved'] = 3.9,
+    	['recallimproved'] = 6.9,
+    	['superrecall'] = 3.9,
+    }
+    self.activeRecalls = {}
+    self.lasttime={}
+    self.target = nil
+
+    for i, enemy in pairs(self.enemyHeros) do
+    	self.recallStatus[enemy.charName] = enemy.recall
+    end
+
+    self:AddToMenu()
+
+    AddTickCallback(function() self:OnTick() end)
+    AddTickCallback(function()
+    	for i, enemy in pairs(self.enemyHeros) do
+    		if enemy.recall ~= self.recallStatus[enemy.charName] then
+    			self:recallFunction(enemy, enemy.recall)
+    		end
+    		self.recallStatus[enemy.charName] = enemy.recall
+    	end
+    end)
+    AddDrawCallback(function() self:OnDraw() end)
+end
+function Jinx:BaseUlt()
+    if not myHero.dead and LulzMenu.Spell.RMenu.BaseUlt then
+        self.time = GetDistance(myHero, self.BaseSpots[2]) / 2000
+        for i, snipeTarget in pairs(self.activeRecalls) do
+            if (snipeTarget.endT - os.clock()) <= self.time + .4 and (snipeTarget.endT - os.clock()) >= self.time + .2 and self:BaseUltPredictIfUltCanKill(snipeTarget) then
+                CastSpell(_R, self:BaseUltGetBaseCoords().x, self:BaseUltGetBaseCoords().z)
+            end
+        end
+    end
+end
+function Jinx:recallFunction(Hero, Status)
+	local o = Hero
+	if o and o.valid and o.type == 'AIHeroClient' then
+		local str = Status
+		if self.recallTimes[str:lower()] then
+			if LulzMenu.General.Verbose then
+				if not o.visible and self.lasttime[o.networkID]  then
+					print(r.name.." is recalling. Last seen "..string.format("%.1f", os.clock() -self.lasttime[o.networkID], 1).." seconds ago." )
+				end
+			end
+			self.activeRecalls[o.networkID] = {
+            					name = o.charName,
+            					startT = os.clock(),
+            					duration = self.recallTimes[str:lower()],
+            					endT = os.clock() + self.recallTimes[str:lower()],
+                                startHP = o.health,
+                                hpRegen = o.hpRegen,
+                                object = o
+            				}
+			return
+		elseif self.activeRecalls[o.networkID] then
+			if self.activeRecalls[o.networkID] and self.activeRecalls[o.networkID].endT > os.clock() then
+				if LulzMenu.General.Verbose then
+					print(self.activeRecalls[o.networkID].name.." canceled recall")
+				end
+				recallTime = nil
+				recallName = nil
+				blockName = nil
+				self.activeRecalls[o.networkID] = nil
+				return
+			else
+				if junglerName == self.activeRecalls[o.networkID].name then
+					jungleText = "Recalled"
+				end
+				if LulzMenu.General.Verbose then
+					print(self.activeRecalls[o.networkID].name.." finished recall")
+				end
+				self.activeRecalls[o.networkID] = nil
+				recallTime = nil
+				recallName = nil
+				blockName = nil
+				return
+			end
+		end
+	end
+end
+function Jinx:AddToMenu()
+    LulzMenu.Draw.RSettings:addParam("BaseUlt", "Draw baseult tracker", 1, true)
+
+    LulzMenu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 1,{"Off","Last Hit","Clear"})
+    LulzMenu.Spell.QMenu:addParam("EnableJungle", "Use in jungle", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableKs", "Use to KS", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableFlee", "Use to flee with iceborn", 1, true)
+    LulzMenu.Spell.QMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.QMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+    LulzMenu.Spell.QMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.QMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+    Prediction:AddToMenu(LulzMenu.Spell.QMenu)
+
+    LulzMenu.Spell.WMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.WMenu:addParam("EnableHarass", "Use in harass", 1, false)
+    LulzMenu.Spell.WMenu:addParam("EnableClear", "Use in clear", 1, false)
+    LulzMenu.Spell.WMenu:addParam("EnableKs", "Use to KS", 1, true)
+    LulzMenu.Spell.WMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.WMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+    LulzMenu.Spell.WMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.WMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+    Prediction:AddToMenu(LulzMenu.Spell.WMenu)
+
+    LulzMenu.Spell.EMenu:addParam("Enable", "Use as gap closer", SCRIPT_PARAM_LIST, 1,{"Never", "Combo", "Combo+Harass"})
+    LulzMenu.Spell.EMenu:addParam("EnableKs", "Use to KS", 1, true)
+    LulzMenu.Spell.EMenu:addParam("EnableFlee", "Use to flee", 1, true)
+    LulzMenu.Spell.EMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.EMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+
+    LulzMenu.Spell.RMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.RMenu:addParam("ComboRangeCheck", "Combo ult range check", SCRIPT_PARAM_SLICE, 800, 0, 9000, 0)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder44", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.RMenu:addParam("BaseUlt", "Enable base ult", 1, true)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder3", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.RMenu:addParam("EnableSnipe", "Ult to global snipe", 1, true)
+    LulzMenu.Spell.RMenu:addParam("SnipeRangeCheckMax", "Global snipe max range check", SCRIPT_PARAM_SLICE, 1500, 300, 9000, 0)
+    LulzMenu.Spell.RMenu:setCallback("SnipeRangeCheckMax", function(v)
+        LulzMenu.Spell.RMenu:removeParam("SnipeRangeCheckMin")
+        LulzMenu.Spell.RMenu:addParam("SnipeRangeCheckMin", "Global snipe min range check", SCRIPT_PARAM_SLICE, 1500, 0, v, 0)
+        if LulzMenu.Spell.RMenu.SnipeRangeCheckMin > v then LulzMenu.Spell.RMenu.SnipeRangeCheckMin = v - 300 end
+    end)
+    LulzMenu.Spell.RMenu:addParam("SnipeRangeCheckMin", "Global snipe min range check", SCRIPT_PARAM_SLICE, 1200, 0, 9000, 0)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder23", "", SCRIPT_PARAM_INFO, "")
+
+
+    LulzMenu.Spell.RMenu:addParam("EnableInitiator", "Use on initiators", 1, true)
+    LulzMenu.Spell.RMenu:addParam("InitiatorRangeCheck", "Initiators ult range check", SCRIPT_PARAM_SLICE, 2000, 0, 9000, 0)
+    LulzMenu.Spell.RMenu:addParam("InitiateNum", "Min number of enemies to ult", SCRIPT_PARAM_SLICE, 1, 1, 5, 0)
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+    Prediction:AddToMenu(LulzMenu.Spell.RMenu)
+end
+function Jinx:GetDamage(spell, unit)
+    if spell == "ALL" then
+        local sum = 0
+          for spell, func in pairs(self.spellDmg) do
+            sum = sum + (func(unit) or 0)
+          end
+         return sum
+       else
+          return self.spellDmg[spell](unit) or 0
+       end
+end
+function Jinx:OnTick()
+    self.QState = myHero:CanUseSpell(_Q) == READY
+    self.WState = myHero:CanUseSpell(_W) == READY
+    self.EState = myHero:CanUseSpell(_E) == READY
+    self.RState = myHero:CanUseSpell(_R) == READY
+    self.QToggle = GetSpellData(_Q).toggleState
+    self.manaPercent = myHero.mana / myHero.maxMana * 100
+    self.target = CTargetSelector:GetTarget()
+
+    self:Combo()
+    self:Harass()
+    self:LaneClear()
+    --self:KillSteal()
+    self:FleeMode()
+    --self:BaseUlt()
+end
+function Jinx:OnDraw()
+    local function ReturnColor(color) return ARGB(color[1],color[2],color[3],color[4]) end
+    local function BaseUltProgressBar(x, y, percent, text, tick)
+        DrawRectangle(x, y - 5, 300, 40, ARGB(255,100,100,100))
+        DrawRectangle(x + 5, y, 290, 30, ARGB(255,30,30,30))
+        DrawRectangle(x + 5, y, (percent/100)*290, 30, ARGB(255,255,0,0))
+        DrawRectangle(x + (6.9 / 7.9 * 290), y, (100/100)*290 - x + (6.9 / 7.9 * 290), 30, ARGB(100,30,30,30))
+        if tick <= 100 then
+            DrawRectangle(x + 5 + (tick/100)*290, y, 2, 30, ARGB(255,0,255,0))
+        else
+            DrawRectangle(x + 5 + (100/100)*290, y, 2, 30, ARGB(255,0,255,0))
+        end
+        DrawText(text,20,y + 8,x + 5,ARGB(255,255,255,255))
+    end
+
+    if not myHero.dead then
+        if LulzMenu.Draw.AASettings.Enabled then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, ReturnColor(LulzMenu.Draw.AASettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.QSettings.Enabled and (self.QState or not LulzMenu.Draw.QSettings.Hide) then
+            --DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, ReturnColor(LulzMenu.Draw.QSettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.WSettings.Enabled and (self.WState or not LulzMenu.Draw.WSettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.range, 1, ReturnColor(LulzMenu.Draw.WSettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.ESettings.Enabled and (self.EState or not LulzMenu.Draw.ESettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.range, 1, ReturnColor(LulzMenu.Draw.ESettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.ESettings.Enabled and (self.EState or not LulzMenu.Draw.ESettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.maxRange, 1, ReturnColor(LulzMenu.Draw.ESettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.RSettings.Enabled and (self.RState or not LulzMenu.Draw.RSettings.Hide) then
+            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, LulzMenu.Spell.RMenu.SnipeRangeCheckMax, 1, ReturnColor(LulzMenu.Draw.RSettings.CircleColor), 50)
+            DrawCircleMinimap(myHero.x, myHero.y, myHero.z, LulzMenu.Spell.RMenu.SnipeRangeCheckMin, 1, ReturnColor(LulzMenu.Draw.RSettings.CircleColor), 50)
+            for i, enemy in pairs(self.enemyHeros) do
+                if enemy and ValidTarget(enemy) then
+                    if self.RState and self:GetDamage(_R,enemy) > enemy.health and GetDistance(enemy) < LulzMenu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > LulzMenu.Spell.RMenu.SnipeRangeCheckMin then
+                        DrawTextA("You can kill 1 or more enemies, Hold your Force ult key!", 25, WINDOW_H / 2, 50, ARGB(255,255,0,0), "center", "center")
+                    end
+                end
+            end
+        end
+        if LulzMenu.Draw.DrawTarget then
+            if ValidTarget(self.target) then
+                DrawCircle3D(self.target.x, self.target.y, self.target.z, 100, 1, ARGB(255,255,0,0), 100)
+            end
+        end
+        if LulzMenu.Spell.RMenu.BaseUlt and LulzMenu.Draw.RSettings.BaseUlt then
+            for i, enemy in pairs(self.activeRecalls) do
+                 if self:BaseUltPredictIfUltCanKill(enemy) then
+                     BaseUltProgressBar(500,500,(enemy.endT - os.clock()) / 7.9 * 100, enemy.name, ((GetDistance(myHero, self:BaseUltGetBaseCoords()) / 2500) + 1.5) / 8 * 100)
+                 end
+            end
+        end
+    end
+end
+function Jinx:BaseUltGetBaseCoords()
+    if myHero.team == 100 then
+        return self.BaseSpots[2]
+    else
+        return self.BaseSpots[1]
+    end
+end
+function Jinx:BaseUltPredictIfUltCanKill(target)
+    if myHero.charName == "Ezreal" or myHero.charName == "Jinx" or myHero.charName == "Draven" or myHero.charName == "Ashe" then
+        if self:GetDamage(_R, target.object) > target.startHP + (target.hpRegen * 7.9)  then
+            return true
+        else
+            return false
+        end
+    end
+end
+function Jinx:CastQ(enemy)
+    if self.QState then
+        if (GetDistanceSqr(enemy) > math.pow(myHero.range + myHero.boundingRadius,2) and self.QToggle == 1) or (GetDistanceSqr(enemy) < math.pow(myHero.range + myHero.boundingRadius,2) and self.QToggle == 2) then
+            CastSpell(_Q)
+        end
+    end
+end
+function Jinx:CastW(enemy)
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.W, "W")
+    if CastPosition and HitChance >= LulzMenu.Spell.WMenu.Accuracy then
+        CastSpell(_W, CastPosition.x, CastPosition.z)
+    end
+end
+function Jinx:CastE(x,z)
+    if self.EState then
+        CastSpell(_E, x, z)
+    end
+end
+function Jinx:CastR(enemy)
+    local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.R)
+    if CastPosition and HitChance >= LulzMenu.Spell.RMenu.Accuracy then
+        CastSpell(_R, CastPosition.x, CastPosition.z)
+    end
+end
+function Jinx:Combo()
+    if Orbwalker:IsFighting() then
+        if ValidTarget(self.target) then
+            if self.QState then
+                self:CastQ(self.target)
+            end
+
+            if self.WState then
+                self:CastW(self.target)
+            end
+        end
+    end
+end
+function Jinx:Harass()
+    if Orbwalker:IsHarassing() then
+        if ValidTarget(self.target) then
+            if self.QState and LulzMenu.Spell.QMenu.EnableHarass then
+                self:CastQ(self.target)
+            end
+
+            if self.WState and LulzMenu.Spell.WMenu.EnableHarass then
+                self:CastW(self.target)
+            end
+        end
+    end
+end
+function Jinx:LaneClear()
+    if Orbwalker:IsLaneClearing() then
+        if LulzMenu.Spell.QMenu.EnableJungle then
+            self.jungleMinions:update()
+
+            if self.QState then
+                for i, jungle in pairs(self.jungleMinions.objects) do
+                    if jungle ~= nil and ValidTarget(jungle) and GetDistance(jungle) < self.SpellTable.Q.range and string.split(jungle.charName,'_')[2] ~= "Plant" then
+                        self:CastQ(jungle)
+                    end
+                end
+            end
+        end
+
+        if LulzMenu.Spell.QMenu.EnableClear > 1 then
+            self.enemyMinions:update()
+            if self.QState then
+                for i, minion in pairs(self.enemyMinions.objects) do
+                    if minion ~= nil and ValidTarget(minion) and GetDistance(minion) < self.SpellTable.Q.range then
+                        if LulzMenu.Spell.QMenu.EnableClear == 3 then
+                            self:CastQ(minion)
+                        else
+                            if self:GetDamage(_Q, minion) > minion.health then
+                                self:CastQ(minion)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+function Jinx:KillSteal()
+    for i, enemy in pairs(self.enemyHeros) do
+        if enemy and ValidTarget(enemy) then
+            if LulzMenu.Spell.EMenu.EnableKs then
+                if GetDistance(enemy) > self.SpellTable.Q.range and GetDistance(enemy) < (self.SpellTable.Q.range + self.SpellTable.E.range) then
+                    if enemy.health < (getDmg("Q", enemy, myHero)+((myHero.damage)*1.1)+(myHero.ap*0.4)) then
+                        local p = myHero + (Vector(enemy.pos) - myHero):normalized() * 475
+                        self:CastE(p.x,p.z)
+                        DelayAction((function() self:CastQ(enemy) end), .3)
+
+                    end
+                end
+            end
+
+            if LulzMenu.Spell.QMenu.EnableKs then
+                if self:GetDamage(_Q, enemy) > enemy.health and enemy.health < self:GetDamage(_W, enemy) then
+                    self:CastQ(enemy)
+                end
+            end
+
+            if LulzMenu.Spell.WMenu.EnableKs then
+                if self:GetDamage(_Q, enemy) < enemy.health and enemy.health > self:GetDamage(_W, enemy) then
+                    self:CastW(enemy)
+                end
+            end
+
+            if LulzMenu.Hotkeys.ForceUlt then
+                if self.RState and self:GetDamage(_R, enemy) > enemy.health and GetDistance(enemy) < LulzMenu.Spell.RMenu.SnipeRangeCheckMax and GetDistance(enemy) > LulzMenu.Spell.RMenu.SnipeRangeCheckMin then
+                    self:CastR(enemy)
+                end
+            end
+        end
+    end
+end
+function Jinx:FleeMode()
+    if LulzMenu.Hotkeys.FleeKey then
+        myHero:MoveTo(mousePos.x, mousePos.z)
+
+        if LulzMenu.Spell.QMenu.EnableFlee then
+            if ItemsAndSummoners:HasItem(3025) then
+                --self:CastQ(self.target)
+            end
+        end
+    end
+end
+
+
+class "Yasuo"
+function Yasuo:__init()
+    self.QState, self.WState, self.EState , self.RState = nil, nil, nil, nil
+    self.spellExpired = true
+    self.SpellTable = {
+        Q = {range = 475, speed = huge, delay = 0.20, width = 40, collision = false},
+       Q3 = {range = 1050, speed = 2200, delay = 0.20, width = 70, collision = false},
+        W = {range = 400, speed = 2000, delay = 0.012, width = 85, collision = true},
+        E = {range = 475, speed = 2000, delay = 0.25, width = 80, collision = true},
+        R = {range = 1200, speed = 1350, delay = 0.25, width = 85, collision = false},
+    }
+    self.spellDmg = {
+        [_Q] = function(unit) if self.QState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 20)) + (myHero.totalDamage * 1)))) end end,
+        [_E] = function(unit) if self.EState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_E).level * 20) + 50) + (myHero.ap * 0.6)))) end end,
+        [_R] = function(unit) if self.RState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_R).level * 225) + 25) + (myHero.addDamage * 2)))) end end,
+    }
+    self.autoWall = {
+        ['Aatrox']      = {true, spell = _Q,                  range = 1000,  projSpeed = 1200, },
+        ['Aatrox']      = {true, spell = _E,                  range = 1000,  projSpeed = 1000, },
+        ['Ahri']        = {true, spell = _E,                  range = 950,   projSpeed = 1500, },
+        ['Amumu']       = {true, spell = _Q,                  range = 1100,  projSpeed = 2000, },
+        ['Amumu']       = {true, spell = _R,                  range = 550,   projSpeed = huge, },
+        ['Anivia']      = {true, spell = _Q,                  range = 1075,  projSpeed = 850, },
+        ['Annie']       = {true, spell = _Q,                  range = 625,   projSpeed = huge, },
+        ['Annie']       = {true, spell = _W,                  range = 625,   projSpeed = huge, },
+        --['Akali']       = {true, spell = _R,                  range = 800,   projSpeed = 2200, },
+        --['Alistar']     = {true, spell = _W,                  range = 650,   projSpeed = 2000, },
+        ['Ashe']        = {true, spell = _R,                  range = 20000, projSpeed = 1600, },
+        ['Azir']        = {true, spell = _R,                  range = 500,   projSpeed = 1600, },
+        ['Blitzcrank']  = {true, spell = _Q,                  range = 925,   projSpeed = 1800, },
+        ['Brand']       = {true, spell = _R,                  range = 750,   projSpeed = 780, },
+        ['Braum']       = {true, spell = _R,                  range = 1250,  projSpeed = 1600, },
+        ['Caitlyn']     = {true, spell = _R,                  range = 3000,  projSpeed = huge, },
+        ['Cassiopeia']  = {true, spell = _R,                  range = 825,   projSpeed = huge, },
+        ['Chogath']     = {true, spell = _Q,                  range = 950,   projSpeed = huge, },
+        ['Corki']       = {true, spell = _Q,                  range = 825,   projSpeed = 1125, },
+        ['Diana']       = {true, spell = _R,                  range = 825,   projSpeed = 2000, },
+        ['Darius']      = {true, spell = _E,                  range = 540,   projSpeed = 1500, },
+        ['Darius']      = {true, spell = _R,                  range = 480,   projSpeed = huge, },
+        ['Ezrael']      = {true, spell = _R,                  range = 20000, projSpeed = 2000, },
+        ['Fiora']       = {true, spell = _R,                  range = 400,   projSpeed = huge, },
+        ['Fizz']        = {true, spell = _R,                  range = 1200,  projSpeed = 1200, },
+        ['Gangplank']   = {true, spell = _Q,                  range = 620,   projSpeed = huge, },
+        ['Gragas']      = {true, spell = _E,                  range = 600,   projSpeed = 2000, },
+        ['Gragas']      = {true, spell = _R,                  range = 800,   projSpeed = 1300, },
+        ['Graves']      = {true, spell = _R,                  range = 1100,  projSpeed = 2100, },
+        ['Hecarim']     = {true, spell = _R,                  range = 1000,  projSpeed = 1200, },
+        --['Irelia']      = {true, spell = _Q,                  range = 650,   projSpeed = 2200, },
+        ['Irelia']      = {true, spell = _E,                  range = 425,   projSpeed = huge, },
+        --['JarvanIV']    = {true, spell = jarvanAddition,      range = 770,   projSpeed = 2000, },
+        ['Jax']         = {true, spell = _E,                  range = 250,   projSpeed = huge, },
+        ['Jayce']       = {true, spell = 'JayceToTheSkies',   range = 600,   projSpeed = 2000, },
+        ['Jinx']        = {true, spell = _R,                  range = 20000, projSpeed = 1700, },
+        ['Kayle']       = {true, spell = _Q,                  range = 600,   projSpeed = huge, },
+        ['Kennen']      = {true, spell = _Q,                  range = 1000,  projSpeed = 1700, },
+        ['Khazix']      = {true, spell = _E,                  range = 900,   projSpeed = 2000, },
+        ['Leblanc']     = {true, spell = _W,                  range = 600,   projSpeed = 2000, },
+        ['LeeSin']      = {true, spell = 'blindmonkqtwo',     range = 1300,  projSpeed = 1800, },
+        ['Leona']       = {true, spell = _E,                  range = 900,   projSpeed = 2000, },
+        ['Leona']       = {true, spell = _R,                  range = 1100,  projSpeed = huge, },
+        ['Lulu']        = {true, spell = _Q,                  range = 950,   projSpeed = 1600, },
+        ['Lux']         = {true, spell = _Q,                  range = 1300,  projSpeed = 1200, },
+        --['Malphite']    = {true, spell = _R,                  range = 1000,  projSpeed = 1500 + unit.ms},
+        ['Maokai']      = {true, spell = _Q,                  range = 600,   projSpeed = 1200, },
+        ['MonkeyKing']  = {true, spell = _E,                  range = 650,   projSpeed = 2200, },
+        ['Morgana']     = {true, spell = _Q,                  range = 1175,  projSpeed = 1200, },
+        ['Nocturne']    = {true, spell = _R,                  range = 2000,  projSpeed = 500, },
+        ['Orianna']     = {true, spell = _Q,                  range = 825,   projSpeed = 1200, },
+        ['Pantheon']    = {true, spell = _W,                  range = 600,   projSpeed = 2000, },
+        ['Poppy']       = {true, spell = _E,                  range = 525,   projSpeed = 2000, },
+        ['Renekton']    = {true, spell = _E,                  range = 450,   projSpeed = 2000, },
+        ['Sejuani']     = {true, spell = _Q,                  range = 650,   projSpeed = 2000, },
+        ['Shen']        = {true, spell = _E,                  range = 575,   projSpeed = 2000, },
+        ['Tristana']    = {true, spell = _W,                  range = 900,   projSpeed = 2000, },
+        ['Tryndamere']  = {true, spell = 'Slash',             range = 650,   projSpeed = 1450, },
+        ['Twistedfate'] = {true, spell = _W,                  range = 525,   projSpeed = huge, },
+        ['Vayne']       = {true, spell = _E,                  range = 550,   projSpeed = huge, },
+        ['Veigar']      = {true, spell = _R,                  range = 700,   projSpeed = huge, },
+        ['Vi']          = {true, spell = _R,                  range = 600,   projSpeed = 1200, },
+        ['Xerath']      = {true, spell = _E,                  range = 1000,  projSpeed = 1200, },
+        ['XinZhao']     = {true, spell = _E,                  range = 650,   projSpeed = 2000, },
+        ['Yasuo']       = {true, spell = _Q,                  range = 650,   projSpeed = 2000, },
+        ['Zyra']        = {true, spell = _E,                  range = 1175,  projSpeed = 1400, },
+        ['Swain']       = {true, spell = _W,                  range = 900,  projSpeed = huge, },
+    }
+    self.enemyHeros = GetEnemyHeroes()
+    self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.Q3.range, myHero, MINION_SORT_HEALTH_ASC)
+    self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MAXHEALTH_ASC)
+    self.informationTable = {}
+    self.dashTable = {}
+
+    local function championMenu()
+        LulzMenu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
+        LulzMenu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
+        LulzMenu.Spell.QMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 1,{"Off","Last Hit","Clear"})
+        LulzMenu.Spell.QMenu:addParam("EnableJungle", "Use in jungle", 1, true)
+        LulzMenu.Spell.QMenu:addParam("EnableKs", "Use to KS", 1, true)
+        LulzMenu.Spell.QMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+        LulzMenu.Spell.QMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+        LulzMenu.Spell.QMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+        LulzMenu.Spell.QMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+
+        LulzMenu.Spell.WMenu:addParam("Enable", "Auto wind wall", SCRIPT_PARAM_LIST, 4,{"Off","Combo","Combo+Harass","Always"})
+        LulzMenu.Spell.WMenu:addParam("EnableFlee", "Use in flee", 1, true)
+        LulzMenu.Spell.WMenu:addParam("EnableJungle", "Use in jungle", 1, true)
+
+        LulzMenu.Spell.EMenu:addParam("EnableCombo", "Use in combo", 1, true)
+        LulzMenu.Spell.EMenu:addParam("EnableHarass", "Use in harass", 1, false)
+        LulzMenu.Spell.EMenu:addParam("EnableJungle", "Use in jungle", SCRIPT_PARAM_LIST, 3,{"Off","Everything","Everything expect dragon and baron"})
+        LulzMenu.Spell.EMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 3,{"Off","Push","Lasthit"})
+        LulzMenu.Spell.EMenu:addParam("EnableFlee", "Use in flee", 1, true)
+        LulzMenu.Spell.EMenu:addParam("EnableKS", "Use to KS", 1, true)
+
+        LulzMenu.Spell.RMenu:addParam("AutoUlt", "Auto ult to execute", 1, true)
+        LulzMenu.Spell.RMenu:addParam("EnableCombo", "Use in combo", 1, true)
+
+        _G.Prediction:AddToMenu(LulzMenu.Spell.QMenu)
+    end
+
+    championMenu()
+    AddDrawCallback(function() self:OnDraw() end)
+    AddTickCallback(function() self:OnTick() end)
+    AddApplyBuffCallback(function(source, unit, buff) self:UltHelper(source, unit, buff) end)
+    AddProcessSpellCallback(function(unit, spell) self:AutoWall(unit, spell) end)
+end
+function Yasuo:GapCloseMinion(Target)
+    self.enemyMinions:update()
+    local LineEnd = myHero + (Vector(Target) - myHero):normalized() * GetDistance(Target)
+    local n = 0
+    for i, minion in pairs(self.enemyMinions.objects) do
+        local pointSegment, pointLine, isOnSegment = VectorPointProjectionOnLineSegment(Vector(myHero), LineEnd, minion)
+        if isOnSegment and GetDistance(minion, pointSegment) <= 85*1.25 then
+            if GetDistance(minion) < self.SpellTable.E.range then
+                return minion
+            end
+        end
+    end
+end
+function Yasuo:OnDraw()
+    local function ReturnColor(color) return ARGB(color[1],color[2],color[3],color[4]) end
+    if not myHero.dead then
+        if LulzMenu.Draw.AASettings.Enabled then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, myHero.range + myHero.boundingRadius, 1, ReturnColor(LulzMenu.Draw.AASettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.QSettings.Enabled and (self.QState or not LulzMenu.Draw.QSettings.Hide) then
+            if myHero:GetSpellData(_Q).name == "YasuoQW" or myHero:GetSpellData(_Q).name == "YasuoQ2W" then
+                DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q.range, 1, ReturnColor(LulzMenu.Draw.QSettings.CircleColor), 100)
+            elseif myHero:GetSpellData(_Q).name == "YasuoQ3W" then
+                DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.Q3.range, 1, ReturnColor(LulzMenu.Draw.QSettings.CircleColor), 100)
+            end
+        end
+        if LulzMenu.Draw.WSettings.Enabled and (self.WState or not LulzMenu.Draw.WSettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.W.range, 1, ReturnColor(LulzMenu.Draw.WSettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.ESettings.Enabled and (self.EState or not LulzMenu.Draw.ESettings.Hide) then
+            RenderCircle(self.SpellTable.E.range,LulzMenu.Draw.ESettings)
+            --DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.E.range, 1, ReturnColor(LulzMenu.Draw.ESettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.RSettings.Enabled and (self.RState or not LulzMenu.Draw.RSettings.Hide) then
+            DrawCircle3D(myHero.x, myHero.y, myHero.z, self.SpellTable.R.range, 1, ReturnColor(LulzMenu.Draw.RSettings.CircleColor), 100)
+        end
+        if LulzMenu.Draw.DrawTarget then
+            if Target ~= nil then
+                DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
+            end
+        end
+    end
+end
+function Yasuo:OnTick()
+    self.QState = myHero:CanUseSpell(_Q) == READY
+    self.WState = myHero:CanUseSpell(_W) == READY
+    self.EState = myHero:CanUseSpell(_E) == READY
+    self.RState = myHero:CanUseSpell(_R) == READY
+    _G.Target = CTargetSelector:GetTarget()
+    self:Combo()
+    --self:Harass()
+    self:LaneClear()
+    self:SpellExpired()
+    --self:GetToLaneFaster()
+    --self:KillSteal()
+    --self:FleeMode()
+    --self:TearStack()
+    --self:UltBardR()
+end
+function Yasuo:GetDamage(spell, unit)
+    if spell == "ALL" then
+        local sum = 0
+          for spell, func in pairs(spellDmg) do
+            sum = sum + (func(unit) or 0)
+          end
+         return sum
+       else
+          return self.spellDmg[spell](unit) or 0
+       end
+end
+function Yasuo:Combo()
+    if Orbwalker:IsFighting() then
+        if ValidTarget(Target) then
+            if GetDistance(Target) > myHero.range + myHero.boundingRadius + 100 then
+                local m = self:GapCloseMinion(Target)
+                if ValidTarget(m) then
+                    self:CastE(m)
+                end
+            end
+            if LulzMenu.Spell.EMenu.EnableCombo then self:CastE(Target) end
+            if LulzMenu.Spell.QMenu.EnableCombo then self:CastQ(Target) end
+        end
+    end
+end
+function Yasuo:LaneClear()
+    if Orbwalker:IsLaneClearing() then
+        self.enemyMinions:update()
+        self.jungleMinions:update()
+
+        if LulzMenu.Spell.WMenu.EnableJungle then
+            if self.WState then
+                for i, jungle in pairs(self.jungleMinions.objects) do
+                    if jungle ~= nil and ValidTarget(jungle) and GetDistance(jungle) < self.SpellTable.E.range and  GetDistance(jungle) > 350 and string.split(jungle.charName,'_')[2] == "Dragon" or self.SpellTable.E.range and string.split(jungle.charName,'_')[2] == "Baron" then
+                        self:CastW(jungle)
+                    end
+                end
+            end
+        end
+        if LulzMenu.Spell.QMenu.EnableJungle then
+            if self.QState then
+                for i, jungle in pairs(self.jungleMinions.objects) do
+                    if jungle ~= nil and ValidTarget(jungle) and GetDistance(jungle) < self.SpellTable.Q.range and string.split(jungle.charName,'_')[2] ~= "Plant" then
+                        self:CastQ(jungle)
+                    end
+                end
+            end
+        end
+        if LulzMenu.Spell.EMenu.EnableJungle then
+            if self.EState then
+                for i, jungle in pairs(self.jungleMinions.objects) do
+                    if jungle ~= nil and ValidTarget(jungle) and GetDistance(jungle) < self.SpellTable.E.range and string.split(jungle.charName,'_')[2] ~= "Plant" then
+                        self:CastE(jungle)
+                    end
+                end
+            end
+        end
+
+        if LulzMenu.Spell.QMenu.EnableClear > 1 then
+            if self.QState then
+				for i, minion in pairs(self.enemyMinions.objects) do
+                    if LulzMenu.Spell.QMenu.EnableClear == 2 then
+                        if self:GetDamage(_Q,minion) >= minion.health then
+                            self:CastQ(minion)
+                        end
+                    else
+                        self:CastQ(minion)
+                    end
+                end
+            end
+        end
+        if LulzMenu.Spell.EMenu.EnableClear > 1 then
+            if self.EState then
+				for i, minion in pairs(self.enemyMinions.objects) do
+                    if not UnderTurret((myHero + (Vector(minion) - myHero):normalized() * self.SpellTable.E.range)) then
+                        if LulzMenu.Spell.EMenu.EnableClear == 3 then
+                            if self:GetDamage(_E,minion) >= minion.health then
+                                self:CastE(minion)
+                            end
+                        else
+                            self:CastE(minion)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+function Yasuo:CastQ(enemy)
+    if self.QState then
+        if myHero:GetSpellData(_Q).name == "YasuoQW" or myHero:GetSpellData(_Q).name == "YasuoQ2W" then
+            local CastPosition, HitChance = Prediction:GetLineCastPosition(enemy, self.SpellTable.Q3)
+            if CastPosition and HitChance >= LulzMenu.Spell.QMenu.Accuracy and GetDistance(enemy) <= self.SpellTable.Q.range then
+                CastSpell(_Q, CastPosition.x, CastPosition.z)
+            end
+        elseif myHero:GetSpellData(_Q).name == "YasuoQ3W" then
+            local CastPosition, HitChance = Prediction:GetLineCastPosition(enemy, self.SpellTable.Q3)
+            if CastPosition and HitChance >= LulzMenu.Spell.QMenu.Accuracy then
+                CastSpell(_Q, CastPosition.x, CastPosition.z)
+            end
+        end
+    end
+end
+function Yasuo:CastE(enemy)
+    local function hasEBuff(target)
+        if self.dashTable[target.networkID] and self.dashTable[target.networkID] + (12 - myHero:GetSpellData(_Q).level) > clock() then
+            return true
+        elseif self.dashTable[target.networkID] then
+            self.dashTable[target.networkID] = nil
+        end
+        return false
+    end
+    if self.EState then
+        if GetDistance(enemy) <= self.SpellTable.E.range and not hasEBuff(enemy) then
+            CastSpell(_E, enemy)
+        end
+    end
+end
+function Yasuo:CastW(enemy)
+    if self.WState then
+        CastSpell(_W, enemy.x, enemy.z)
+    end
+end
+function Yasuo:CastR(enemy)
+    if self.RState then
+        if GetDistance(enemy) < self.SpellTable.R.range then
+            CastSpell(_R, enemy)
+        end
+    end
+end
+function Yasuo:UltHelper(source, unit, buff)
+    if source.isMe and buff.name == "YasuoDashWrapper" then
+        self.dashTable[unit.networkID] = clock()
+    end
+	if not buff or not source or not source.valid or not unit or not unit.valid then return end
+    if LulzMenu.Spell.RMenu.AutoUlt or (LulzMenu.Spell.RMenu.EnableCombo and Orbwalker:IsFighting()) then
+        if buff.type == 29 and GetDistance(unit) < self.SpellTable.R.range then
+            self:CastR(unit)
+        end
+    end
+end
+function Yasuo:AutoWall(unit, spell)
+    if self.EState then
+        if unit.type == myHero.type and unit.team ~= myHero.team and self.autoWall[unit.charName] and GetDistance(unit) < 2000 and spell ~= nil then
+            print("here1")
+            if unit:GetSpellData(self.autoWall[unit.charName].spell).name or self.autoWall[unit.charName].spell then
+                print("here2")
+                if spell.target ~= nil and spell.target.isMe then
+                    print("here")
+                    if self.EState  then
+                        self:CastW(unit)
+                    end
+                else
+
+                    self.spellExpired = false
+                    self.informationTable = {
+                        spellSource = unit,
+                        spellCastedTick = GetTickCount(),
+                        spellStartPos = Point(spell.startPos.x, spell.startPos.z),
+                        spellEndPos = Point(spell.endPos.x, spell.endPos.z),
+                        spellRange = self.autoWall[unit.charName].range,
+                        spellSpeed = self.autoWall[unit.charName].projSpeed
+                    }
+                end
+            end
+        end
+    end
+end
+function Yasuo:SpellExpired()
+    if not self.spellExpired and (GetTickCount() - self.informationTable.spellCastedTick) <= (self.informationTable.spellRange / self.informationTable.spellSpeed) * 1000 then
+        local spellDirection     = (self.informationTable.spellEndPos - self.informationTable.spellStartPos):normalized()
+        local spellStartPosition = self.informationTable.spellStartPos + spellDirection
+        local spellEndPosition   = self.informationTable.spellStartPos + spellDirection * self.informationTable.spellRange
+        local heroPosition = Point(myHero.x, myHero.z)
+        local lineSegment = LineSegment(Point(spellStartPosition.x, spellStartPosition.y), Point(spellEndPosition.x, spellEndPosition.y))
+
+        if lineSegment:distance(heroPosition) <= 350 and self.EState then
+            self:CastW(self.informationTable.spellSource)
+        end
+    else
+        self.spellExpired = true
+        self.informationTable = {}
+    end
 end
 
 class "ItemsAndSummoners"
@@ -149,7 +1390,7 @@ function ItemsAndSummoners:__init()
 
     self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MINHEALTH_DEC)
     for _, k in pairs(GetEnemyHeroes()) do
-		self.enemies[k.networkID] = {k.visible, Vector(k), os.clock() + 1, Vector(k.path:Path(2))}
+		self.enemies[k.networkID] = {k.visible, Vector(k), clock() + 1, Vector(k.path:Path(2))}
 	end
 
     LulzMenu.Spell:addSubMenu("Summoner Spells Menu", "SummonerSpellsMenu")
@@ -271,12 +1512,12 @@ end
 function ItemsAndSummoners:UsePotion()
     if not myHero.dead then
         if LulzMenu.Items.AutoPotion == 2 and Orbwalker:IsFighting() or LulzMenu.Items.AutoPotion == 3 then
-        	if os.clock() - self.itemsAndSpells.Cooldowns.LastPotion < 8 then return end
+        	if clock() - self.itemsAndSpells.Cooldowns.LastPotion < 8 then return end
             if LulzMenu.Items.HealthPercent >= (myHero.health / myHero.maxHealth * 100) then
                 for i = 1, 5 do
                     if self:GetSlotItemFromName(self.itemsAndSpells.Potions[i]) ~= nil then
                         CastSpell(self:GetSlotItemFromName(self.itemsAndSpells.Potions[i]))
-                		self.itemsAndSpells.Cooldowns.LastPotion= os.clock()
+                		self.itemsAndSpells.Cooldowns.LastPotion= clock()
                     end
                 end
             end
@@ -319,7 +1560,7 @@ function ItemsAndSummoners:ProtectFromTower(unit, spell)
 	if not unit or not unit.valid or not spell then return end
 	if spell.target and spell.target.type == myHero.type and spell.target.team == myHero.team and (spell.name:lower():find("_turret_chaos") or spell.name:lower():find("_turret_order")) and not (spell.name:lower():find("4") or spell.name:lower():find("3")) then
 		if GetDistance(unit) < 2000 then
-			if os.clock() - self.lastTAttack < 1.75 then
+			if clock() - self.lastTAttack < 1.75 then
 				if self.tDamage < 1.75 then
 					self.tDamage = self.tDamage + 0.375
 				else
@@ -329,7 +1570,7 @@ function ItemsAndSummoners:ProtectFromTower(unit, spell)
 			else
 				self.tDamage = 1
 			end
-			self.lastTAttack = os.clock()
+			self.lastTAttack = clock()
             if self.itemsAndSpells.SummonerSpells.Heal then
                 if (myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Heal) == 0) and spell.target.isMe then
     				local realDamage = unit.totalDamage / (((myHero.armor * 0.7) / 100) + 1)
@@ -456,14 +1697,14 @@ function ItemsAndSummoners:SpellProtection(unit, spell)
 end
 function ItemsAndSummoners:CleanseCC(source, unit, buff)
     local function UseItemsCC()
-    	if os.clock() - self.lastRemove < 1 then return end
+    	if clock() - self.lastRemove < 1 then return end
         for i=1,2 do
             self.cleanseSlot = self:GetSlotItemFromName(self.itemsAndSpells.CleanseItems[i])
             if self.cleanseSlot ~= nil then
                 DelayAction(function()
                     CastSpell(self.cleanseSlot,myHero)
                 end, LulzMenu.Items.CleanseSettings.Delay/1000)
-                self.lastRemove = os.clock()
+                self.lastRemove = clock()
             end
     	end
 
@@ -472,7 +1713,7 @@ function ItemsAndSummoners:CleanseCC(source, unit, buff)
     	-- 	DelayAction(function()
     	-- 		CastSpell(SummonerSlot)
     	-- 	end, MainMenu.cc.delay/1000)
-    	-- 	lastRemove = os.clock()
+    	-- 	lastRemove = clock()
     	-- end
     end
     local function CountEnemiesNearUnitReg(unit, range)
@@ -546,9 +1787,9 @@ function ItemsAndSummoners:SightWard(enemies, tick)
     end
 
     if LulzMenu.Items.Warding.Enable == 3 or LulzMenu.Items.Warding.Enable == 2 and Orbwalker:IsFighting() then
-		tick = os.clock()+0.125
+		tick = clock()+0.125
 		for _, k in pairs(GetEnemyHeroes()) do
-			if enemies[k.networkID][1] and not k.visible and not k.dead and enemies[k.networkID][3] >= os.clock() and GetDistance(k) < ( myHero.range + myHero.boundingRadius+50) then
+			if enemies[k.networkID][1] and not k.visible and not k.dead and enemies[k.networkID][3] >= clock() and GetDistance(k) < ( myHero.range + myHero.boundingRadius+50) then
 				local pos = enemies[k.networkID][2]
 				local dir = (enemies[k.networkID][4] - enemies[k.networkID][2]):normalized()
 				for _=150, 600 do
@@ -560,7 +1801,7 @@ function ItemsAndSummoners:SightWard(enemies, tick)
 				end
 			else
 				if k.visible and not k.dead then
-					enemies[k.networkID] = {k.visible, Vector(k), os.clock() + 1, Vector(k.path:Path(2))}
+					enemies[k.networkID] = {k.visible, Vector(k), clock() + 1, Vector(k.path:Path(2))}
 				end
 			end
 		end
@@ -574,7 +1815,7 @@ function ItemsAndSummoners:AutoSmite()
             if myHero:CanUseSpell(self.itemsAndSpells.SummonerSpells.Smite) == READY then
         		for i, jungle in pairs(self.jungleMinions.objects) do
         			if jungle ~= nil then
-                        if math.max(20 * myHero.level + 370, 30 * myHero.level + 330, 40 * myHero.level + 240, 50 * myHero.level + 100) >= jungle.health then
+                        if max(20 * myHero.level + 370, 30 * myHero.level + 330, 40 * myHero.level + 240, 50 * myHero.level + 100) >= jungle.health then
                             if LulzMenu.Spell.SummonerSpellsMenu[string.split(jungle.charName,'_')[2]] then
                                 CastSpell(self.itemsAndSpells.SummonerSpells.Smite, jungle)
                             end
@@ -592,7 +1833,7 @@ function ItemsAndSummoners:AutoSmiteDraw()
                 for i, jungle in pairs(self.jungleMinions.objects) do
                     if jungle ~= nil then
                         if LulzMenu.Spell.SummonerSpellsMenu[string.split(jungle.charName,'_')[2]] then
-                            DrawText3D("Smite Damage " .. math.floor(math.max(20 * myHero.level + 370, 30 * myHero.level + 330, 40 * myHero.level + 240, 50 * myHero.level + 100)/jungle.health*100) .. "%", jungle.x, jungle.y, jungle.z, 20, ARGB(255,255,0,0), true)
+                            DrawText3D("Smite Damage " .. floor(max(20 * myHero.level + 370, 30 * myHero.level + 330, 40 * myHero.level + 240, 50 * myHero.level + 100)/jungle.health*100) .. "%", jungle.x, jungle.y, jungle.z, 20, ARGB(255,255,0,0), true)
                         end
                     end
                 end
@@ -610,7 +1851,7 @@ end
 
 class "AntiBaseUlt"
 function AntiBaseUlt:__init()
-    self.lower, self.clock, self.recallingTime = string.lower, os.clock(), 0
+    self.lower, self.clock, self.recallingTime = string.lower, clock(), 0
     self.spellData = {
 		['Ashe'] = {
 			MissileName = "EnchantedCrystalArrow",
@@ -658,18 +1899,18 @@ function AntiBaseUlt:OnProcessSpell(unit, spell)
 			['superrecallimproved'] = 4.0
 		}
 
-		self.recallingTime = os.clock() + self.recallSpells[string.lower(spell.name)]
+		self.recallingTime = clock() + self.recallSpells[string.lower(spell.name)]
 	end
 end
 function AntiBaseUlt:OnCreateObj(object)
     if not LulzMenu.General.BaseUlt.Enabled then return end
 
 	if not object or not object.valid or object.type ~= "MissileClient" or not object.spellOwner or not object.spellOwner.valid
-    or self.recallingTime < os.clock() or object.spellOwner.type ~= myHero.type or object.spellOwner.team == myHero.team
+    or self.recallingTime < clock() or object.spellOwner.type ~= myHero.type or object.spellOwner.team == myHero.team
     or self.spellData[object.spellOwner.charName] == nil or not LulzMenu.General.BaseUlt[object.spellOwner.charName]
     or self.spellData[object.spellOwner.charName].MissileName ~= object.spellName then return end
 
-    self.time = os.clock() + (GetDistance(object.pos, GetFountain()) / self.spellData[object.spellOwner.charName].Speed)
+    self.time = clock() + (GetDistance(object.pos, GetFountain()) / self.spellData[object.spellOwner.charName].Speed)
     if not self:IsLineCircleIntersection(GetFountain(), 500, object.pos, object.spellEnd) or 1 + self.recallingTime < self.time or self.recallingTime - 1 > self.time then
 		return
 	end
@@ -699,7 +1940,7 @@ function ThreshLantern:__init()
 end
 function ThreshLantern:OnTick()
     if self.lantern ~= nil and LulzMenu.Hotkeys.FleeKey then
-        if GetDistanceSqr(self.lantern) < 300^2 then
+        if GetDistanceSqr(self.lantern) < 90000 then
             self.lantern:Interact()
         end
     end
@@ -717,47 +1958,112 @@ end
 
 class "CTargetSelector"
 function CTargetSelector:__init()
+    CTargetSelector.targetSelector = TargetSelector(TARGET_LESS_CAST_PRIORITY, 1500, TEAM_ENEMY)
     CTargetSelector.enemyHeros = GetEnemyHeroes()
+    focus = nil
     CTargetSelector.championTable = {
-        [1] = {"Alistar", "Braum", "DrMundo", "Galio", "Garen", "Leona", "Nautilus", "Shen", "Singed", "Sion", "Poppy", "Rammus", "Skarner", "Tahm Kench", "Taric", "Thresh", "Zac"},
-        [2] = {"Aatrox", "Amumu", "Blitzcrank", "Darius", "Gnar", "Gragas", "Illaoi", "Ivern", "Janna", "Kled", "Malphite", "Maokai", "Nami", "Nasus", "Nunu", "Olaf", "Sejuani", "Shyvana", "RekSai", "Renekton", "Swain", "Trundle", "Udyr", "Urgot", "Volibear", "Yorick"},
+        [5] = {"Alistar", "Braum", "DrMundo", "Galio", "Garen", "Leona", "Nautilus", "Shen", "Singed", "Sion", "Poppy", "Rammus", "Skarner", "Tahm Kench", "Taric", "Thresh", "Zac"},
+        [4] = {"Aatrox", "Amumu", "Blitzcrank", "Darius", "Gnar", "Gragas", "Illaoi", "Ivern", "Janna", "Kled", "Malphite", "Maokai", "Nami", "Nasus", "Nunu", "Olaf", "Sejuani", "Shyvana", "RekSai", "Renekton", "Swain", "Trundle", "Udyr", "Urgot", "Volibear", "Yorick"},
         [3] = {"Akali", "Anivia", "Bard", "ChoGath", "Ekko", "Elise", "Fiora", "Gangplank", "Hecarim", "Heimerdinger", "Irelia", "JarvanIV", "Jax", "Jayce", "Kassadin", "Kayle", "Lee Sin", "Lissandra", "Lulu", "Mordekaiser", "Morgana", "Nidalee", "Pantheon", "Sona", "Taliyah", "Tryndamere", "Vi", "Vladimir", "Warwick", "Wukong", "XinZhao", "Zilean", "Zyra"},
-        [4] = {"Ahri", "Annie", "Aurelion Sol", "Azir", "Camille", "Cassiopeia", "Corki", "Diana", "Evelynn", "Fiddlesticks", "Fizz", "Graves", "Karma", "Karthus", "Katarina", "Kennen", "Kindred", "LeBlanc", "Lux", "Malzahar", "Nocturne", "Orianna", "Ryze", "Shaco", "Riven", "Rengar", "Syndra", "Soraka", "Talon", "Twisted Fate", "Veigar", "VelKoz","Viktor", "Xerath", "Zed", "Ziggs"},
-        [5] = {"Ashe", "Brand", "Caitlyn", "Draven", "Ezreal", "Jhin", "Jinx", "Kalista", "KhaZix", "KogMaw", "Lucian", "Master Yi", "Miss Fortune", "Quinn", "Sivir", "Teemo", "Tristana", "Twitch", "Varus", "Vayne", "Yasuo"},
+        [2] = {"Ahri", "Annie", "Aurelion Sol", "Azir", "Camille", "Cassiopeia", "Corki", "Diana", "Evelynn", "Fiddlesticks", "Fizz", "Graves", "Karma", "Karthus", "Katarina", "Kennen", "Kindred", "LeBlanc", "Lux", "Malzahar", "Nocturne", "Orianna", "Ryze", "Shaco", "Riven", "Rengar", "Syndra", "Soraka", "Talon", "Twisted Fate", "Veigar", "VelKoz","Viktor", "Xerath", "Zed", "Ziggs"},
+        [1] = {"Ashe", "Brand", "Caitlyn", "Draven", "Ezreal", "Jhin", "Jinx", "Kalista", "KhaZix", "KogMaw", "Lucian", "Master Yi", "Miss Fortune", "Quinn", "Sivir", "Teemo", "Tristana", "Twitch", "Varus", "Vayne", "Yasuo"},
     }
-    CTargetSelector.customTarget = nil
-    CTargetSelector.stillFocused = false
+    CTargetSelector.sendOnce = true
 
     LulzMenu:addSubMenu("Target Selection Menu", "Targeting")
-    for i, enemy in pairs(self.enemyHeros) do
-        local priorityValue = 1
+    LulzMenu.Targeting:addParam("Focus", "Left click to focus", SCRIPT_PARAM_LIST, 2, {"Never","For 1 Minute", "Until Removed"})
+    LulzMenu.Targeting:addParam("FocusIgnore", "Focus ignore range", SCRIPT_PARAM_SLICE, 1500, 0, 3000, 0)
+    LulzMenu.Targeting:addParam("TargetingInfo2", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Targeting:addParam("Method", "Target selection method", SCRIPT_PARAM_LIST, 8,{"Low HP", "Most AP", "Most AD", "Less Cast", "Near Mouse", "Priority", "Low HP Priority", "Less Cast Priority"})
+    LulzMenu.Targeting:addParam("OrbWalker", "Prefer orbwalker targeting", 1, true)
+    LulzMenu.Targeting:addParam("TargetingInfo3", "", SCRIPT_PARAM_INFO, "")
+
+    for i, enemy in pairs(CTargetSelector.enemyHeros) do
         for i = 1, 5 do
-            for key, value in pairs(self.championTable[i]) do
+            for key, value in pairs(CTargetSelector.championTable[i]) do
                 if string.lower(value) == string.lower(enemy.charName) then
-                    priorityValue = i
+                    LulzMenu.Targeting:addParam(enemy.charName, enemy.charName, SCRIPT_PARAM_SLICE, i, 1, 5, 0)
+                    break
                 end
             end
         end
-
-        LulzMenu.Targeting:addParam(enemy.charName, enemy.charName, SCRIPT_PARAM_SLICE, priorityValue, 1, 5, 0)
+        LulzMenu.Targeting:addParam(enemy.charName, enemy.charName, SCRIPT_PARAM_SLICE, 1, 1, 5, 0)
     end
-    LulzMenu.Targeting:addParam("TargetingInfo", "1 = Low Priority, 5 = Max Priority(You will focus first)", SCRIPT_PARAM_INFO, "")
-    LulzMenu.Targeting:addParam("TargetingInfo2", "", SCRIPT_PARAM_INFO, "")
-    LulzMenu.Targeting:addParam("Method", "Target Selection Method", SCRIPT_PARAM_LIST, 1,{"NearMouse", "Priority", "LowHPPriority", "LessCastPriority", "Closest" })
+
+    LulzMenu.Targeting:addParam("TargetingInfo", "5 = Low Priority, 1 = Max Priority(You will focus first)", SCRIPT_PARAM_INFO, "")
+
+    AddMsgCallback(function(msg,key) self:OnWndMsg(msg, key) end)
 end
 function CTargetSelector:GetTarget()
-    local selectedTarget = nil
-    local targetSeed = math.huge
+    if ValidTarget(focus) and GetDistanceSqr(focus) > LulzMenu.Targeting.FocusIgnore * LulzMenu.Targeting.FocusIgnore then
+        return focus
+    end
+    local orbTarget = Orbwalker:GetOrbwalkerTarget()
+    if LulzMenu.Targeting.OrbWalker and ValidTarget(orbTarget) then
+        return orbTarget
+    else
+        CTargetSelector.targetSelector.mode = LulzMenu.Targeting.Method
+        local priority = {}
+        for i, enemy in pairs(self.enemyHeros) do
+            insert(priority, LulzMenu.Targeting[enemy.charName])
+        end
+        table.sort(priority, function(a,b) return a < b end)
 
-    for i, enemy in pairs(self.enemyHeros) do
-        if GetDistanceSqr(enemy) <= ((myHero.range + myHero.boundingRadius) * (myHero.range + myHero.boundingRadius)) then
-            if ((enemy.health + enemy.armor) - (enemy.totalDamage * 2 + enemy.ap)) / LulzMenu.Targeting[enemy.charName] < targetSeed then
-                targetSeed = ((enemy.health + enemy.armor) - (enemy.totalDamage * 2 + enemy.ap)) / LulzMenu.Targeting[enemy.charName]
-                selectedTarget = enemy
-            end
+        for i, enemy in pairs(self.enemyHeros) do
+            TS_SetHeroPriority(i, enemy)
+        end
+
+        CTargetSelector.targetSelector:update()
+        local tsTarget = CTargetSelector.targetSelector.target
+
+        if ValidTarget(tsTarget) then
+            return tsTarget
+        else
+            return nil
         end
     end
-    return selectedTarget
+end
+function CTargetSelector:ClosestEnemy(pos)
+	if pos == nil then return huge, nil end
+	local closestEnemy, distanceEnemy = nil, huge
+
+	for i=1, #CTargetSelector.enemyHeros do
+		if not CTargetSelector.enemyHeros[i].dead then
+			if GetDistance(pos, CTargetSelector.enemyHeros[i]) < distanceEnemy then
+				distanceEnemy = GetDistance(pos, CTargetSelector.enemyHeros[i])
+				closestEnemy = CTargetSelector.enemyHeros[i]
+			end
+		end
+	end
+
+	return closestEnemy, distanceEnemy
+end
+function CTargetSelector:OnWndMsg(msg,key)
+	if msg == WM_LBUTTONDOWN then
+		local enemy, distance = self:ClosestEnemy(mousePos)
+
+		if distance < 250 then
+			if focus and focus.charName == enemy.charName then
+				focus = nil
+			else
+				focus = enemy
+                self:FocusTarget()
+			end
+		end
+	end
+end
+function CTargetSelector:FocusTarget()
+	if LulzMenu.Targeting.Focus > 1 then
+		if CTargetSelector.sendOnce and LulzMenu.Targeting.Focus == 2 then
+			DelayAction(function()
+				if focus ~= nil then
+					focus = nil
+					CTargetSelector.sendOnce = true
+				end
+			end, 60)
+			CTargetSelector.sendOnce = false
+		end
+	end
 end
 
 class "Humanizer"
@@ -776,7 +2082,7 @@ function Humanizer:__init()
     self.enemyHeros = GetEnemyHeroes()
     self.missingEnemy = {}
     for i, Enemy in pairs(self.enemyHeros) do
-    	self.missingEnemy[Enemy.charName] = os.clock()
+    	self.missingEnemy[Enemy.charName] = clock()
     end
 
     LulzMenu:addSubMenu("Humanizer Menu", "Humanizer")
@@ -833,7 +2139,7 @@ function Humanizer:Functions()
     	if param3 and param2 then
     		local endPos = Vector(param2, myHero.y, param3)
     		if ID == 3 and self.globalUlt[myHero.charName] and self:IsOnScreen(myHero.pos) and not LulzMenu.Humanizer[myHero.charName][tostring(ID)] then
-    			local ultSpot = Vector(myHero.x, myHero.y, myHero.z) + (Vector(param2, myHero.y, param3) - Vector(myHero.x, myHero.y, myHero.z)):normalized() * (80 + (math.random()*420))
+    			local ultSpot = Vector(myHero.x, myHero.y, myHero.z) + (Vector(param2, myHero.y, param3) - Vector(myHero.x, myHero.y, myHero.z)):normalized() * (80 + (random()*420))
     			param2, param3 = ultSpot.x, ultSpot.z
     		elseif ID ~= 13 and not LulzMenu.Humanizer[myHero.charName][tostring(ID)] then
     			if endPos then
@@ -878,9 +2184,9 @@ end
 function Humanizer:NewEnemy()
 	for i, Enemy in pairs(self.enemyHeros) do
 		if not Enemy.visible then
-			self.missingEnemy[Enemy.charName] = os.clock()
+			self.missingEnemy[Enemy.charName] = clock()
 		elseif Enemy.visible and self.missingEnemy[Enemy.charName] ~= 0 then
-			if os.clock() - self.missingEnemy[Enemy.charName] > 1.5 then
+			if clock() - self.missingEnemy[Enemy.charName] > 1.5 then
 				self.missingEnemy[Enemy.charName] = 0
 			end
 		end
@@ -896,7 +2202,7 @@ function Humanizer:OnIssueOrder(source, order, position, target)
     	end
     end
     if not LulzMenu.Humanizer.Enable then return end
-	if LulzMenu.Humanizer.Movement.Enable and os.clock() - self.lastCommand < moveEvery() and order == 2 then
+	if LulzMenu.Humanizer.Movement.Enable and clock() - self.lastCommand < moveEvery() and order == 2 then
 		BlockOrder()
 		self.bCount = self.bCount + 1
 		LulzMenu.Humanizer:modifyParam("info22", "text", "Total Commands Blocked: "..self.bCount)
@@ -910,7 +2216,7 @@ function Humanizer:OnIssueOrder(source, order, position, target)
 		end
 	end
 
-	self.lastCommand = os.clock()
+	self.lastCommand = clock()
 end
 function Humanizer:OnWndMsg(msg, key)
 	if msg == 516 and key == 2 then
@@ -921,7 +2227,7 @@ end
 class "Orbwalker"
 function Orbwalker:__init()
     local orbwalker = nil
-    Orbwalker.timer = os.clock()
+    Orbwalker.timer = clock()
 
     LulzMenu:addSubMenu("Orbwalker Menu", "Orbwalker")
         LulzMenu.Orbwalker:addParam("CustomKey", "Use Custom Combat Keys", SCRIPT_PARAM_ONOFF, false)
@@ -952,7 +2258,7 @@ function Orbwalker:FindOrbwalker()
     elseif _Pewalk then
        orbwalker = "PEWalk"
     else
-        if Orbwalker.timer + 15 <= os.clock() then
+        if Orbwalker.timer + 15 <= clock() then
             orbwalker = "SX"
             if FileExist(LIB_PATH.."SxOrbWalk.lua") then
                 require "SxOrbWalk"
@@ -1100,7 +2406,7 @@ function Prediction:__init()
     Prediction.menuItems = {}
 	for i=1, #_G.predictonTable.Predictions do
         if FileExist(LIB_PATH .. _G.predictonTable.Predictions[i][1] .. ".lua") then
-            table.insert(_G.predictonTable.FoundPredictions, _G.predictonTable.Predictions[i][1])
+            insert(_G.predictonTable.FoundPredictions, _G.predictonTable.Predictions[i][1])
     	end
     end
 
@@ -1117,7 +2423,6 @@ end
 function Prediction:ActivePrediction()
     _G.predictonTable.ActivePrediction = _G.predictonTable.Predictions[LulzMenu.General.Prediction][1]
     if _G[_G.predictonTable.ActivePrediction] and _G.predictonTable.ActivePrediction ~= "FHPrediction" and self.lastPrediction ~= _G.predictonTable.ActivePrediction then
-        print(_G.predictonTable.ActivePrediction)
         if not _G.predictonTable.GlobalCallbacks[_G.predictonTable.ActivePrediction] then
             _G.predictonTable.GlobalCallbacks[_G.predictonTable.ActivePrediction] = _G[_G.predictonTable.ActivePrediction]()
             activePrediction = _G.predictonTable.GlobalCallbacks[_G.predictonTable.ActivePrediction]
@@ -1133,12 +2438,12 @@ function Prediction:ActivePrediction()
         end
     end
 
-    table.insert(_G.predictonTable.LoadedPredictions, _G.predictonTable.ActivePrediction)
+    insert(_G.predictonTable.LoadedPredictions, _G.predictonTable.ActivePrediction)
     require(_G.predictonTable.ActivePrediction)
 end
 function Prediction:AddToMenu(menu)
     menu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, _G.predictonTable.Predictions[LulzMenu.General.Prediction][2], _G.predictonTable.Predictions[LulzMenu.General.Prediction][3], _G.predictonTable.Predictions[LulzMenu.General.Prediction][4], _G.predictonTable.Predictions[LulzMenu.General.Prediction][5])
-    table.insert(Prediction.menuItems,menu)
+    insert(Prediction.menuItems,menu)
 end
 function Prediction:GetLineCastPosition(target, spellTable, usePreset)
     if _G.predictonTable.ActivePrediction ~= nil then
@@ -1201,7 +2506,7 @@ end
 function Prediction:GetPredictedPosistion(hero, delay)
     if _G.predictonTable.ActivePrediction ~= nil then
         if _G.predictonTable.ActivePrediction == "VPrediction" then
-            return VPrediction:GetPredictedPos(hero, delay)
+            return activePrediction:GetPredictedPos(hero, delay)
         elseif _G.predictonTable.ActivePrediction == "FHPrediction" then
             return FHPrediction.PredictPosition(hero, delay)
         elseif _G.predictonTable.ActivePrediction == "HPrediction" then
@@ -1243,8 +2548,8 @@ function CheckUpdates(Version)
 	local ToUpdate = {}
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
-    ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
-    ToUpdate.ScriptPath =  "/Celtech/BOL/master/EzREAL/EzREAL.lua"
+    ToUpdate.VersionPath = "/Celtech/BOL/master/LulzAIO/LulzAIO.version"
+    ToUpdate.ScriptPath =  "/Celtech/BOL/master/LulzAIO/LulzAIO.lua"
     ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
     ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."Updated to v"..NewVersion.."</font>") end
     ToUpdate.CallbackNoUpdate = function(OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."No Updates Found, loading version ".. OldVersion .."</font>") SCRIPTUPDATED = true  end
@@ -1268,29 +2573,11 @@ function DownloadSXOrb()
 
     SxScriptUpdate(0.00,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError, true)
 end
-function DownloadChampion()
-    local champList = {["Ezreal"] = 1}
-    if champList[myHero.charName] then
-        local ToUpdate = {}
-        ToUpdate.UseHttps = true
-        ToUpdate.Host = "raw.githubusercontent.com"
-        ToUpdate.VersionPath = "/Celtech/BOL/master/LulzAIO/Lulz"..myHero.charName..".version"
-        ToUpdate.ScriptPath =  "/Celtech/BOL/master/LulzAIO/Lulz"..myHero.charName..".lua"
-        ToUpdate.SavePath = LIB_PATH.."Lulz"..myHero.charName..".lua"
-        ToUpdate.Version = nil
-        ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) require("Lulz"..myHero.charName) if _G[myHero.charName] then _G[myHero.charName]() end end
-        ToUpdate.CallbackNoUpdate = function(OldVersion)  require("Lulz"..myHero.charName) if _G[myHero.charName] then _G[myHero.charName]() end  end
-        ToUpdate.CallbackNewVersion = function(NewVersion) Log("Downloading "..myHero.charName.." script v"..NewVersion..". No need to reload!") end
-        ToUpdate.CallbackError = function(NewVersion) Log("Error while Downloading. Please try again.") end
-
-        SxScriptUpdate(0.00,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError, true)
-    end
-end
 function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptPath, SavePath, CallbackUpdate, CallbackNoUpdate, CallbackNewVersion,CallbackError, IsLib)
     self.LocalVersion = LocalVersion
     self.Host = Host
-    self.VersionPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..VersionPath)..'&rand='..math.random(99999999)
-    self.ScriptPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..ScriptPath)..'&rand='..math.random(99999999)
+    self.VersionPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..VersionPath)..'&rand='..random(99999999)
+    self.ScriptPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..ScriptPath)..'&rand='..random(99999999)
     self.SavePath = SavePath
     self.CallbackUpdate = CallbackUpdate
     self.CallbackNoUpdate = CallbackNoUpdate
@@ -1367,7 +2654,7 @@ function SxScriptUpdate:GetOnlineVersion()
             local ScriptEnd = self.File:find('</scr'..'ipt>')
             if ScriptEnd then ScriptEnd = ScriptEnd - 1 end
             local DownloadedSize = self.File:sub(ScriptFind+1,ScriptEnd or -1):len()
-            self.DownloadStatus = 'Downloading VersionInfo ('..math.round(100/self.Size*DownloadedSize,2)..'%)'
+            self.DownloadStatus = 'Downloading VersionInfo ('..round(100/self.Size*DownloadedSize,2)..'%)'
         end
     end
     if self.File:find('</scr'..'ipt>') then
@@ -1427,7 +2714,7 @@ function SxScriptUpdate:DownloadUpdate()
             local ScriptEnd = self.File:find('</scr'..'ipt>')
             if ScriptEnd then ScriptEnd = ScriptEnd - 1 end
             local DownloadedSize = self.File:sub(ScriptFind+1,ScriptEnd or -1):len()
-            self.DownloadStatus = 'Downloading Script ('..math.round(100/self.Size*DownloadedSize,2)..'%)'
+            self.DownloadStatus = 'Downloading Script ('..round(100/self.Size*DownloadedSize,2)..'%)'
         end
     end
     if self.File:find('</scr'..'ipt>') then
