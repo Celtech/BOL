@@ -1716,8 +1716,8 @@ function CheckUpdates(Version)
 	local ToUpdate = {}
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
-    ToUpdate.VersionPath = "/Celtech/BOL/master/EzREAL/version"
-    ToUpdate.ScriptPath =  "/Celtech/BOL/master/EzREAL/EzREAL.lua"
+    ToUpdate.VersionPath = "/Celtech/BOL/master/UnitedUnderBrokenWings/UnitedUnderBrokenWings.version"
+    ToUpdate.ScriptPath =  "/Celtech/BOL/master/UnitedUnderBrokenWings/UnitedUnderBrokenWings.lua"
     ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
     ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."Updated to v"..NewVersion.."</font>") end
     ToUpdate.CallbackNoUpdate = function(OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."No Updates Found, loading version ".. OldVersion .."</font>") SCRIPTUPDATED = true  end
