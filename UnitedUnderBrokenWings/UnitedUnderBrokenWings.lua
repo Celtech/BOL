@@ -64,18 +64,15 @@ local function CreateBaseMenu()
         LulzMenu.General:addSubMenu("Auto Leveler", "Level")
             LulzMenu.General.Level:addParam("Enable", "Enable Auto Leveler", 1, true)
             LulzMenu.General.Level:addParam("Ignore", "Ignore First 3 Levels", 1, true)
-            LulzMenu.General.Level:addParam("Sequence", "Leveling Sequence", SCRIPT_PARAM_LIST, 1,{'Q>E>W', 'Q>W>E', 'W>Q>E', 'W>E>Q'})
+            LulzMenu.General.Level:addParam("Sequence", "Leveling Sequence", SCRIPT_PARAM_LIST, 1,{'Q>E>W', 'Q>W>E', 'W>Q>E', 'W>E>Q', 'E>Q>W'})
         LulzMenu.General:addSubMenu("Auto Buy", "Buy")
             LulzMenu.General.Buy:addParam("StartingItems", "Purchase Starting Items", 1, true)
 		    LulzMenu.General.Buy:addParam("TrinketSwitch", "Auto Switch Trinket At 9", SCRIPT_PARAM_LIST, 2, {"Off","Blue","Red"})
         LulzMenu.General:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         LulzMenu.General:addParam("Lane", "Get to lane faster", 1, true)
         LulzMenu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
-    -- LulzMenu:addSubMenu("Hotkeys Menu", "Hotkeys")
-    --     LulzMenu.Hotkeys:addParam("ForceUlt", "Ult execute keybinding", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
-    --     LulzMenu.Hotkeys:addParam("FleeKey", "Flee Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("G"))
-    --     LulzMenu.Hotkeys:addParam("Burst", "Burst Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("Y"))
-    --     LulzMenu.Hotkeys:addParam("Stack", "Tear Stacker Mode", SCRIPT_PARAM_ONKEYTOGGLE, false, string.byte("J"))
+    LulzMenu:addSubMenu("Hotkeys Menu", "Hotkeys")
+         LulzMenu.Hotkeys:addParam("FleeKey", "Flee Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("G"))
     LulzMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
     LulzMenu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Dance","Taunt","Laugh","Joke","Mastery"})
     LulzMenu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_SLICE, 0, 0, 25, 0)
@@ -94,7 +91,7 @@ local function RenderCircle(size, menu)
 end
 
 function OnLoad()
-    local version = 0.15
+    local version = 0.02
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -892,7 +889,8 @@ function ItemsAndSummoners:AutoLeveler()
             {1,3,1,2,1,4,1,3,1,3,4,3,3,2,2,4,2,2},
             {1,2,3,1,1,4,1,2,1,2,4,2,2,3,3,4,3,3},
             {2,1,3,2,2,4,2,1,2,1,4,1,1,3,3,4,3,3},
-            {2,3,1,2,2,4,2,3,2,3,4,3,3,1,1,4,1,1}
+            {2,3,1,2,2,4,2,3,2,3,4,3,3,1,1,4,1,1},
+            {3,1,3,2,3,4,3,1,3,1,4,1,1,2,2,4,2,2}
         }
         autoLevelSetSequence(self.abilitySequence[LulzMenu.General.Level.Sequence])
 	end
