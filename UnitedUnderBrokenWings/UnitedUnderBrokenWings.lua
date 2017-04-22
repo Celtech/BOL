@@ -91,7 +91,7 @@ local function RenderCircle(size, menu)
 end
 
 function OnLoad()
-    local version = 0.04
+    local version = 0.06
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -115,7 +115,7 @@ end
 
 class "Xayah"
 function Xayah:__init()
-    self.QState, self.WState, self.EState = nil, nil, nil
+    self.QState, self.WState, self.EState, self.RState = nil, nil, nil, nil
     self.manaPercent = nil
 
     self.SpellTable = {
@@ -125,10 +125,9 @@ function Xayah:__init()
         R = {range = 1040, speed = 2000, delay = 0.50, angle = 150, collision = false, aoe = true}
     }
     self.spellDmg = {
-        [_Q] = function(unit) if self.QState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 20) + 15) + (myHero.ap * 0.4)) + (myHero.totalDamage * 1.1))) end end,
-        [_W] = function(unit) if self.WState then return myHero:CalcMagicDamage(unit, (((myHero:GetSpellData(_W).level * 45) + 25) + (myHero.ap * 0.8))) end end,
-        [_E] = function(unit) if self.EState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_E).level * 50) + 25) + (myHero.ap * 0.75)) + (myHero.addDamage * 0.5))) end end,
-        [_R] = function(unit) if self.RState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_R).level * 150) + 200) + (myHero.ap * 0.9)) + myHero.addDamage)) end end
+        [_Q] = function(unit) if self.QState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 20) + 20) + (myHero.addDamage * 0.4)))) end end,
+        [_E] = function(unit) if self.EState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_E).level * 10) + 40) + (myHero.addDamage * 0.6)))) end end,
+        [_R] = function(unit) if self.RState then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_R).level * 50) + 50) + (myHero.addDamage * 1.0)))) end end
     }
     self.feathers = {}
     --[[
@@ -139,7 +138,167 @@ function Xayah:__init()
     type 5 = targeted
     ]]
     self.jukeTable = {
-    	
+    	["Aatrox"] = {
+    		{type = 4, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Ahri"] = {
+    		{type = 2, range = 800,  spell = _E, name = "E"},
+    	},
+    	["Alistar"] = {
+    		{type = 2, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Amumu"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    		{type = 2, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Anivia"] = {
+    		{type = 3, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Annie"] = {
+    		{type = 5, range = 1200, spell = _Q, name = "Q"},
+    		{type = 3, range = 1200, spell = _W, name = "W"},
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+
+    	},
+    	["Ashe"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Azir"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Bard"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Blitzcrank"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    		{type = 2, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Brand"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Braum"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Cassiopeia"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["ChoGath"] = {
+    		{type = 4, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Draven"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Ezreal"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Fiddlesticks"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Fizz"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Gangplank"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Gragas"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Graves"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Hecarim"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Illaoi"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Ivern"] = {
+    		{type = 3, range = 1200, spell = _Q, name = "Q"}
+    	},
+    	["Jinx"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Karthus"] = {
+    		{type = 6, range = 800,  spell = _R, name = "R", delay = 1},
+    	},
+    	["Katarina"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Kennen"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Leona"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Lux"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Malphite"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["MissFortune"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Morgana"] = {
+    		{type = 6, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Nami"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Nautilus"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Nunu"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Orianna"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Riven"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Rumble"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Sejuani"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Sona"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Syndra"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Tristana"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Veigar"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["VelKoz"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Vi"] = {
+    		{type = 5, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Viktor"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Warwick"] = {
+    		{type = 3, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Wukong"] = {
+    		{type = 1, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Zed"] = {
+    		{type = 6, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Ziggs"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
+    	["Zyra"] = {
+    		{type = 4, range = 800,  spell = _R, name = "R"},
+    	},
     }
 
     self.enemyHeros = GetEnemyHeroes()
@@ -155,8 +314,6 @@ function Xayah:__init()
     AddProcessSpellCallback(function(unit, spell) self:UltimateJuke(unit,spell) end)
 end
 function Xayah:AddToMenu()
-    LulzMenu.Draw.RSettings:addParam("BaseUlt", "Draw baseult tracker", 1, true)
-
     LulzMenu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
     LulzMenu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
     LulzMenu.Spell.QMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 2,{"Off","Last Hit","Clear"})
@@ -917,7 +1074,7 @@ function ItemsAndSummoners:CleanseCC(source, unit, buff)
     end
 
     if not buff or not source or not source.valid or not unit or not unit.valid then return end
-	if unit.isMe and (LulzMenu.Items.CleanseSettings.Enable == 3 or LulzMenu.Items.CleanseSettings.Enable == 2 and Orbwalker:IsFighting()) then
+	if unit.isMe and (LulzMenu.Items.CleanseSettings.Enable == 3 or (LulzMenu.Items.CleanseSettings.Enable == 2 and Orbwalker:IsFighting())) then
         if (source.charName == "Rammus" and buff.type ~= 8) or source.charName == "Alistar" or source.charName:lower():find("baron") or source.charName:lower():find("spiderboss") or source.charName == "LeeSin" or (source.charName == "Hecarim" and not buff.name:lower():find("fleeslow")) then return end
 		if buff.name and ((not cleanse and buff.type == 24) or buff.type == 5 or buff.type == 11 or buff.type == 22 or buff.type == 21 or buff.type == 8) or (buff.type == 25 and LulzMenu.Items.CleanseSettings.Blind)
 		or (buff.type == 10 and buff.name and buff.name:lower():find("fleeslow")) then
@@ -969,9 +1126,11 @@ function ItemsAndSummoners:SightWard(enemies, tick)
         for i=1,3 do
             self.itemSlot = self:GetSlotItemFromName(self.itemsAndSpells.Wards[i])
             if self.itemSlot ~= nil then
-                DelayAction(function()
-                    CastSpell(self.itemSlot, wardPos.x, wardPos.z)
-                end, LulzMenu.Items.Warding.Delay/1000)
+                if myHero:CanUseSpell(self.itemSlot) == READY then
+                    DelayAction(function()
+                        CastSpell(self.itemSlot, wardPos.x, wardPos.z)
+                    end, LulzMenu.Items.Warding.Delay/1000)
+                end
             end
     	end
     end
@@ -1283,10 +1442,10 @@ function Humanizer:__init()
             LulzMenu.Humanizer[myHero.charName]:addParam("0", "Spell Q", SCRIPT_PARAM_ONOFF, false)
             LulzMenu.Humanizer[myHero.charName]:addParam("1", "Spell W", SCRIPT_PARAM_ONOFF, false)
             LulzMenu.Humanizer[myHero.charName]:addParam("2", "Spell E", SCRIPT_PARAM_ONOFF, false)
-            LulzMenu.Humanizer[myHero.charName]:addParam("3", "Spell R", SCRIPT_PARAM_ONOFF, true)
+            LulzMenu.Humanizer[myHero.charName]:addParam("3", "Spell R", SCRIPT_PARAM_ONOFF, false)
             LulzMenu.Humanizer[myHero.charName]:addParam("info22","Turning off Spell R may affect base ult!", SCRIPT_PARAM_INFO, "")
         LulzMenu.Humanizer:addSubMenu("Movement Limiter", "Movement")
-            LulzMenu.Humanizer.Movement:addParam("Enable", "Use Movement Limiter", SCRIPT_PARAM_ONOFF, true)
+            LulzMenu.Humanizer.Movement:addParam("Enable", "Use Movement Limiter", SCRIPT_PARAM_ONOFF, false)
             LulzMenu.Humanizer.Movement:addParam("info222","", SCRIPT_PARAM_INFO, "")
             LulzMenu.Humanizer.Movement:addParam("info23","Max Actions Per Second", SCRIPT_PARAM_INFO, "")
             LulzMenu.Humanizer.Movement:addParam("lhit", "Last Hit", SCRIPT_PARAM_SLICE, 6, 1, 25, 0)
@@ -1296,8 +1455,8 @@ function Humanizer:__init()
             LulzMenu.Humanizer.Movement:addParam("perm", "Persistant", SCRIPT_PARAM_SLICE, 9, 1, 25, 0)
             LulzMenu.Humanizer.Movement:addParam("info233","25 = No restrictions, 1 = Highly Restricted", SCRIPT_PARAM_INFO, "")
         LulzMenu.Humanizer:addParam("info23","", SCRIPT_PARAM_INFO, "")
-        LulzMenu.Humanizer:addParam("Enable", "Enable humanizer", SCRIPT_PARAM_ONOFF, true)
-        LulzMenu.Humanizer:addParam("FOW", "Ignore new FoW enemies", SCRIPT_PARAM_ONOFF, true)
+        LulzMenu.Humanizer:addParam("Enable", "Enable humanizer", SCRIPT_PARAM_ONOFF, false)
+        LulzMenu.Humanizer:addParam("FOW", "Ignore new FoW enemies", SCRIPT_PARAM_ONOFF, false)
         LulzMenu.Humanizer:addParam("info22","Total Commands Blocked: 0", SCRIPT_PARAM_INFO, "")
 
     AddMsgCallback(function(msg,key) self:OnWndMsg(msg, key) end)
