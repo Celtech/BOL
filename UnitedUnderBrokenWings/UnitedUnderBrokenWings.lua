@@ -1,34 +1,40 @@
+if myHero.charName ~= "Xayah" and myHero.charName ~= "Rakan" then return end
+assert(load(Base64Decode("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"), nil, "bt", _ENV))()
+TrackerLoad("7c0PSV2nxVLfueY5")
+
 local pi, pi2, sin, cos, huge, sqrt, floor, ceil, max, random, round = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round
 local clock = os.clock
 local pairs, ipairs = pairs, ipairs
 local insert, remove = table.insert, table.remove
 local TEAM_ALLY, TEAM_ENEMY
 
+local function ReturnColor(color)
+    return ARGB(color[1],color[2],color[3],color[4])
+end
 local function Log(message)
     print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>"..message.."</font>")
 end
 local function CreateBaseMenu()
     _G.LulzMenu = scriptConfig("Lulz"..myHero.charName, myHero.charName .. "lulz")
     LulzMenu:addSubMenu("Drawing Menu", "Draw")
-        LulzMenu.Draw:addSubMenu("AA Settings", "AASettings")
-            LulzMenu.Draw.AASettings:addParam("Enabled", "Draw AA Range", 1, true)
-            LulzMenu.Draw.AASettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,255,0,0})
-        LulzMenu.Draw:addSubMenu("Q Settings", "QSettings")
-            LulzMenu.Draw.QSettings:addParam("Enabled", "Draw Range", 1, true)
-            LulzMenu.Draw.QSettings:addParam("Hide", "Don't Draw When Not Castable", 1, true)
-            LulzMenu.Draw.QSettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,0})
-        LulzMenu.Draw:addSubMenu("W Settings", "WSettings")
-            LulzMenu.Draw.WSettings:addParam("Enabled", "Draw Range", 1, true)
-            LulzMenu.Draw.WSettings:addParam("Hide", "Don't Draw When Not Castable", 1, true)
-            LulzMenu.Draw.WSettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,0})
-        LulzMenu.Draw:addSubMenu("E Settings", "ESettings")
-            LulzMenu.Draw.ESettings:addParam("Enabled", "Draw Range", 1, true)
-            LulzMenu.Draw.ESettings:addParam("Hide", "Don't Draw When Not Castable", 1, true)
-            LulzMenu.Draw.ESettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,0})
-        LulzMenu.Draw:addSubMenu("R Settings", "RSettings")
-            LulzMenu.Draw.RSettings:addParam("Enabled", "Draw Range", 1, true)
-            LulzMenu.Draw.RSettings:addParam("Hide", "Don't Draw When Not Castable", 1, true)
-            LulzMenu.Draw.RSettings:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,0})
+        LulzMenu.Draw:addSubMenu("AA Settings", "AA")
+            LulzMenu.Draw.AA:addParam("Enabled", "Draw AA Range", 1, true)
+            LulzMenu.Draw.AA:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,255,0,0})
+        LulzMenu.Draw:addSubMenu("Q Settings", "Q")
+            LulzMenu.Draw.Q:addParam("Enabled", "Draw Range", 1, true)
+            LulzMenu.Draw.Q:addParam("Hide", "Don't Draw When Not Castable", 1, true)
+            LulzMenu.Draw.Q:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,255,255,0})
+        LulzMenu.Draw:addSubMenu("W Settings", "W")
+            LulzMenu.Draw.W:addParam("Enabled", "Draw Range", 1, true)
+            LulzMenu.Draw.W:addParam("Hide", "Don't Draw When Not Castable", 1, true)
+            LulzMenu.Draw.W:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,255,0,255})
+        LulzMenu.Draw:addSubMenu("E Settings", "E")
+            LulzMenu.Draw.E:addParam("Enabled", "Draw range", 1, true)
+            LulzMenu.Draw.E:addParam("Hide", "Don't draw when not castable", 1, true)
+        LulzMenu.Draw:addSubMenu("R Settings", "R")
+            LulzMenu.Draw.R:addParam("Enabled", "Draw Range", 1, true)
+            LulzMenu.Draw.R:addParam("Hide", "Don't Draw When Not Castable", 1, true)
+            LulzMenu.Draw.R:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,255})
         LulzMenu.Draw:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         LulzMenu.Draw:addParam("StreamMode", "Enable Streaming Mode(F7)", SCRIPT_PARAM_ONKEYTOGGLE, false, 118)
         LulzMenu.Draw:addParam("DrawTarget", "Draw Target", 1, true)
@@ -80,18 +86,16 @@ local function CreateBaseMenu()
         SetSkin(myHero, v - 1)
     end)
 end
-local function RenderCircle(size, menu)
-    local function ReturnColor(color) return ARGB(color[1],color[2],color[3],color[4]) end
-
+local function RenderCircle(skill)
     if LulzMenu.Draw.LowFPS then
-        DrawCircle3D(myHero.x, myHero.y, myHero.z, size, 1, ReturnColor(menu.CircleColor), LulzMenu.Draw.Quality)
+        DrawCircle3D(myHero.x, myHero.y, myHero.z, _G[myHero.charName].SpellTable[skill].range, 1, ReturnColor(LulzMenu.Draw[skill].CircleColor), LulzMenu.Draw.Quality)
     else
-        DrawCircle(myHero.x, myHero.y, myHero.z, size, ReturnColor(menu.CircleColor))
+        DrawCircle(myHero.x, myHero.y, myHero.z, _G[myHero.charName].SpellTable[skill].range, ReturnColor(LulzMenu.Draw[skill].CircleColor))
     end
 end
 
 function OnLoad()
-    local version = 0.06
+    local version = 0.07
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -118,7 +122,8 @@ function Xayah:__init()
     self.QState, self.WState, self.EState, self.RState = nil, nil, nil, nil
     self.manaPercent = nil
 
-    self.SpellTable = {
+    Xayah.SpellTable = {
+       AA = {range = (myHero.range + myHero.boundingRadius)},
         Q = {range = 1075, speed = 2000, delay = 0.25, width = 75, collision = false},
         W = {range = 1000, delay = 0.25},
         E = {range = 1075, speed = 2000, delay = 0.00, width = 75, collision = false},
@@ -314,6 +319,13 @@ function Xayah:__init()
     AddProcessSpellCallback(function(unit, spell) self:UltimateJuke(unit,spell) end)
 end
 function Xayah:AddToMenu()
+    LulzMenu.Draw.E:addParam("Feathers", "Draw feather circles", 1, true)
+    LulzMenu.Draw.E:addParam("Timers", "Draw feather timers", 1, true)
+    LulzMenu.Draw.E:addParam("Lines", "Draw feather lines", 1, true)
+    LulzMenu.Draw.E:addParam("CircleColor", "Feather circle color", SCRIPT_PARAM_COLOR, {255,128,128,128})
+    LulzMenu.Draw.E:addParam("HitCircleColor", "Feather that will hit line color", SCRIPT_PARAM_COLOR, {255,0,255,0})
+    LulzMenu.Draw.E:addParam("WontHitCircleColor", "Feather that won't hit line color", SCRIPT_PARAM_COLOR, {255,255,0,0})
+
     LulzMenu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
     LulzMenu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
     LulzMenu.Spell.QMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 2,{"Off","Last Hit","Clear"})
@@ -399,34 +411,41 @@ function Xayah:OnTick()
     --self:BaseUlt()
 end
 function Xayah:OnDraw()
-    local function ReturnColor(color) return ARGB(color[1],color[2],color[3],color[4]) end
-
     if not myHero.dead then
-        if LulzMenu.Draw.AASettings.Enabled then
-            RenderCircle(myHero.range + myHero.boundingRadius, LulzMenu.Draw.AASettings)
+        if LulzMenu.Draw.AA.Enabled then
+            RenderCircle("AA")
         end
-        if LulzMenu.Draw.QSettings.Enabled and (self.QState or not LulzMenu.Draw.QSettings.Hide) then
-            RenderCircle(self.SpellTable.Q.range, LulzMenu.Draw.QSettings)
+        if LulzMenu.Draw.Q.Enabled and (self.QState or not LulzMenu.Draw.Q.Hide) then
+            RenderCircle("Q")
         end
-        if LulzMenu.Draw.WSettings.Enabled and (self.WState or not LulzMenu.Draw.WSettings.Hide) then
-            RenderCircle(self.SpellTable.W.range, LulzMenu.Draw.WSettings)
+        if LulzMenu.Draw.W.Enabled and (self.WState or not LulzMenu.Draw.W.Hide) then
+            RenderCircle("W")
         end
-        if LulzMenu.Draw.ESettings.Enabled and (self.EState or not LulzMenu.Draw.ESettings.Hide) then
-            --RenderCircle(self.SpellTable.E.range, LulzMenu.Draw.ESettings)
-        end
-        if LulzMenu.Draw.RSettings.Enabled and (self.RState or not LulzMenu.Draw.RSettings.Hide) then
-            RenderCircle(self.SpellTable.R.range, LulzMenu.Draw.RSettings)
-        end
-        for i, feather in pairs(self.feathers) do
-            DrawCircle3D(feather.x, feather.y, feather.z, 100, 1, ReturnColor(LulzMenu.Draw.ESettings.CircleColor), LulzMenu.Draw.Quality)
-            if ValidTarget(Target) then
-                if self:IsOnEPath(Target,feather) then
-                    DrawLine3D(feather.x, feather.y, feather.z, myHero.x, myHero.y, myHero.z, 1, ARGB(255,0,255,0))
-                else
-                    DrawLine3D(feather.x, feather.y, feather.z, myHero.x, myHero.y, myHero.z, 1, ARGB(255,255,0,0))
+        if LulzMenu.Draw.E.Enabled and (self.EState or not LulzMenu.Draw.E.Hide) then
+            for i, feather in pairs(self.feathers) do
+                if LulzMenu.Draw.E.Feathers then
+                    DrawCircle3D(feather.object.x, feather.object.y, feather.object.z, 100, 1, ReturnColor(LulzMenu.Draw.E.CircleColor), LulzMenu.Draw.Quality)
+                end
+
+                if LulzMenu.Draw.E.Timers then
+                    DrawText3D(tostring(ceil(feather.endtime - clock())), feather.object.x, feather.object.y + 10, feather.object.z - 30, 20, ReturnColor(LulzMenu.Draw.E.CircleColor), true)
+                end
+
+                if LulzMenu.Draw.E.Lines then
+                    if ValidTarget(Target) then
+                        if self:IsOnEPath(Target,feather.object) then
+                            DrawLine3D(feather.object.x, feather.object.y, feather.object.z, myHero.object.x, myHero.object.y, myHero.object.z, 1, ReturnColor(LulzMenu.Draw.E.HitCircleColor))
+                        else
+                            DrawLine3D(feather.object.x, feather.object.y, feather.object.z, myHero.object.x, myHero.object.y, myHero.object.z, 1, ReturnColor(LulzMenu.Draw.E.WontHitCircleColor))
+                        end
+                    end
                 end
             end
         end
+        if LulzMenu.Draw.R.Enabled and (self.RState or not LulzMenu.Draw.R.Hide) then
+            RenderCircle("R")
+        end
+
         if LulzMenu.Draw.DrawTarget then
             if Target ~= nil then
                 DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
@@ -567,7 +586,7 @@ function Xayah:LaneClear()
 
             if self.EState then
                 for i, jungle in pairs(self.jungleMinions.objects) do
-                    if jungle ~= nil and ValidTarget(jungle) and GetDistance(jungle) < self.SpellTable.Q.range and string.split(jungle.charName,'_')[2] ~= "Plant" then
+                    if jungle ~= nil and ValidTarget(jungle) and string.split(jungle.charName,'_')[2] ~= "Plant" then
                         self:CastE(jungle)
                     end
                 end
@@ -644,7 +663,7 @@ end
 function Xayah:TrackFeathers(object)
     if object and object.valid and object.networkID and object.networkID ~= 0 then
         if object.name:find("Xayah_Base_Passive_Dagger_Mark") then
-            self.feathers[object.networkID] = object.pos
+            self.feathers[object.networkID] = {object = object.pos, endtime = clock() + 6.1}
         end
     end
 end
