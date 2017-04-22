@@ -434,9 +434,9 @@ function Xayah:OnDraw()
                 if LulzMenu.Draw.E.Lines then
                     if ValidTarget(Target) then
                         if self:IsOnEPath(Target,feather.object) then
-                            DrawLine3D(feather.object.x, feather.object.y, feather.object.z, myHero.object.x, myHero.object.y, myHero.object.z, 1, ReturnColor(LulzMenu.Draw.E.HitCircleColor))
+                            DrawLine3D(feather.object.x, feather.object.y, feather.object.z, myHero.x, myHero.y, myHero.z, 1, ReturnColor(LulzMenu.Draw.E.HitCircleColor))
                         else
-                            DrawLine3D(feather.object.x, feather.object.y, feather.object.z, myHero.object.x, myHero.object.y, myHero.object.z, 1, ReturnColor(LulzMenu.Draw.E.WontHitCircleColor))
+                            DrawLine3D(feather.object.x, feather.object.y, feather.object.z, myHero.x, myHero.y, myHero.z, 1, ReturnColor(LulzMenu.Draw.E.WontHitCircleColor))
                         end
                     end
                 end
