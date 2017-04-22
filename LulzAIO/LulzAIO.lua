@@ -94,7 +94,7 @@ local function RenderCircle(size, menu)
 end
 
 function OnLoad()
-    local version = 0.15
+    local version = 0.16
     CheckUpdatesLib()
     CheckUpdates(version)
 
