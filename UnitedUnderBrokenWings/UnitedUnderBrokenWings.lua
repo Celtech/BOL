@@ -95,7 +95,7 @@ local function RenderCircle(skill)
 end
 
 function OnLoad()
-    local version = 0.07
+    local version = 0.08
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -489,7 +489,7 @@ function Xayah:CastE(enemy)
     if self.EState then
         local featherHitCount = 0
         for i, feather in pairs(self.feathers) do
-            if self:IsOnEPath(enemy,feather) then
+            if self:IsOnEPath(enemy,feather.object) then
                 featherHitCount = featherHitCount + 1
             end
         end
