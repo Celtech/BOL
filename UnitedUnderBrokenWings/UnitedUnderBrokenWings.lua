@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("7c0PSV2nxVLfueY5")
 
 function OnLoad()
-    local version = 0.10
+    local version = 0.11
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -1871,8 +1871,8 @@ end
 function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptPath, SavePath, CallbackUpdate, CallbackNoUpdate, CallbackNewVersion,CallbackError, IsLib)
     self.LocalVersion = LocalVersion
     self.Host = Host
-    self.VersionPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..VersionPath)..'&rand='.._G.Lulzlib.random(99999999)
-    self.ScriptPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..ScriptPath)..'&rand='.._G.Lulzlib.random(99999999)
+    self.VersionPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..VersionPath)..'&rand='..math.random(99999999)
+    self.ScriptPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..ScriptPath)..'&rand='..math.random(99999999)
     self.SavePath = SavePath
     self.CallbackUpdate = CallbackUpdate
     self.CallbackNoUpdate = CallbackNoUpdate
@@ -1949,7 +1949,7 @@ function SxScriptUpdate:GetOnlineVersion()
             local ScriptEnd = self.File:find('</scr'..'ipt>')
             if ScriptEnd then ScriptEnd = ScriptEnd - 1 end
             local DownloadedSize = self.File:sub(ScriptFind+1,ScriptEnd or -1):len()
-            self.DownloadStatus = 'Downloading VersionInfo ('.._G.Lulzlib.round(100/self.Size*DownloadedSize,2)..'%)'
+            self.DownloadStatus = 'Downloading VersionInfo ('.. math.round(100/self.Size*DownloadedSize,2)..'%)'
         end
     end
     if self.File:find('</scr'..'ipt>') then
@@ -2009,7 +2009,7 @@ function SxScriptUpdate:DownloadUpdate()
             local ScriptEnd = self.File:find('</scr'..'ipt>')
             if ScriptEnd then ScriptEnd = ScriptEnd - 1 end
             local DownloadedSize = self.File:sub(ScriptFind+1,ScriptEnd or -1):len()
-            self.DownloadStatus = 'Downloading Script ('.._G.Lulzlib.round(100/self.Size*DownloadedSize,2)..'%)'
+            self.DownloadStatus = 'Downloading Script ('..math.round(100/self.Size*DownloadedSize,2)..'%)'
         end
     end
     if self.File:find('</scr'..'ipt>') then
