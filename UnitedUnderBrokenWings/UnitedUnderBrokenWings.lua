@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("7c0PSV2nxVLfueY5")
 
 function OnLoad()
-    local version = 0.09
+    local version = 0.10
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -38,7 +38,7 @@ function Xayah:__init()
         E = {range = 1075, speed = 2000, delay = 0.00, width = 75, collision = false},
         R = {range = 1040, speed = 2000, delay = 0.50, angle = 150, collision = false, aoe = true}
     }
-    self.spellDmg = {
+    Xayah.spellDmg = {
         [_Q] = function(unit) if _G.Lulzlib:IsQReady() then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 20) + 20) + (myHero.addDamage * 0.4)))) end end,
         [_E] = function(unit) if _G.Lulzlib:IsEReady() then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_E).level * 10) + 40) + (myHero.addDamage * 0.6)))) end end,
         [_R] = function(unit) if _G.Lulzlib:IsRReady() then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_R).level * 50) + 50) + (myHero.addDamage * 1.0)))) end end
@@ -1521,12 +1521,14 @@ function Orbwalker:__init()
 end
 function Orbwalker:FindOrbwalker()
     if orbwalker ~= nil then return end
-    if _G.Reborn_Initialised and _G.Reborn_Loaded then
-       orbwalker = "SAC:R"
+    if _G.Reborn_Initialised and _G.Reborn_Loaded and SAC and SAC.Loaded then
+        orbwalker = "SAC:P"
+    elseif _G.Reborn_Initialised and _G.Reborn_Loaded and not SAC then
+        orbwalker = "SAC:R"
     elseif _G.MMA_IsLoaded then
-       orbwalker = "MMA"
+        orbwalker = "MMA"
     elseif _Pewalk then
-       orbwalker = "PEWalk"
+        orbwalker = "PEWalk"
     else
         if Orbwalker.timer + 15 <= _G.Lulzlib.clock() then
             orbwalker = "SX"
@@ -1551,7 +1553,7 @@ function Orbwalker:FindOrbwalker()
 end
 function Orbwalker:IsFighting()
     if not LulzMenu.Orbwalker.CustomKey then
-        if orbwalker == "SAC:R" then
+        if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
             return _G.AutoCarry.Keys.AutoCarry
         elseif orbwalker == "MMA" then
             return _G.MMA_IsOrbwalking()
@@ -1566,7 +1568,7 @@ function Orbwalker:IsFighting()
 end
 function Orbwalker:IsHarassing()
     if not LulzMenu.Orbwalker.CustomKey then
-        if orbwalker == "SAC:R" then
+        if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
             return _G.AutoCarry.Keys.MixedMode
         elseif orbwalker == "MMA" then
             return _G.MMA_IsDualCarrying()
@@ -1581,7 +1583,7 @@ function Orbwalker:IsHarassing()
 end
 function Orbwalker:IsLaneClearing()
     if not LulzMenu.Orbwalker.CustomKey then
-        if orbwalker == "SAC:R" then
+        if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
             return _G.AutoCarry.Keys.LaneClear
         elseif orbwalker == "MMA" then
             return _G.MMA_IsLaneClearing()
@@ -1596,7 +1598,7 @@ function Orbwalker:IsLaneClearing()
 end
 function Orbwalker:IsLastHitting()
     if not LulzMenu.Orbwalker.CustomKey then
-        if orbwalker == "SAC:R" then
+        if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
             return _G.AutoCarry.Keys.LaneClear
         elseif orbwalker == "MMA" then
             return _G.MMA_IsLaneClearing()
@@ -1612,6 +1614,8 @@ end
 function Orbwalker:GetOrbwalkerTarget()
     if orbwalker == "SAC:R" then
         return _G.AutoCarry.SkillsCrosshair.target
+    elseif orbwalker == "SAC:P" then
+        return _G.SAC:GetTarget("enemy")
     elseif orbwalker == "MMA" then
         return _G.MMA_Target()
     elseif orbwalker == "PEWalk" then
@@ -1621,7 +1625,7 @@ function Orbwalker:GetOrbwalkerTarget()
     end
 end
 function Orbwalker:ForceTarget(target)
-    if orbwalker == "SAC:R" then
+    if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
         _G.AutoCarry.Crosshair:ForceTarget(target)
     elseif orbwalker == "MMA" then
         _G.MMA_ForceTarget(target)
@@ -1632,7 +1636,7 @@ function Orbwalker:ForceTarget(target)
     end
 end
 function Orbwalker:AllowAttacks(bool)
-    if orbwalker == "SAC:R" then
+    if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
         _G.AutoCarry.MyHero:AttacksEnabled(bool)
     elseif orbwalker == "MMA" then
         _G.MMA_StopAttacks(not bool)
@@ -1647,7 +1651,7 @@ function Orbwalker:AllowAttacks(bool)
     end
 end
 function Orbwalker:AllowMovement(bool)
-    if orbwalker == "SAC:R" then
+    if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
         _G.AutoCarry.MyHero:MovementEnabled(bool)
     elseif orbwalker == "MMA" then
         _G.MMA_AvoidMovement(not bool)
