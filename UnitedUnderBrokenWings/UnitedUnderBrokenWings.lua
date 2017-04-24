@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("7c0PSV2nxVLfueY5")
 
 function OnLoad()
-    local version = 0.11
+    local version = 0.12
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -1256,7 +1256,7 @@ function CTargetSelector:__init()
         end
 
         if not LulzMenu.Targeting[CTargetSelector.enemyHeros[i].charName] then
-            LulzMenu.Targeting:addParam(enemy.charName, enemy.charName, SCRIPT_PARAM_SLICE, 1, 1, 5, 0)
+            LulzMenu.Targeting:addParam(CTargetSelector.enemyHeros[i].charName, CTargetSelector.enemyHeros[i].charName, SCRIPT_PARAM_SLICE, 1, 1, 5, 0)
         end
     end
 
