@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("7c0PSV2nxVLfueY5")
 
 function OnLoad()
-    local version = 0.13
+    local version = 0.14
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -17,6 +17,7 @@ function OnLoad()
         AntiBaseUlt()
         Humanizer()
         ThreshLantern()
+		recallTracker()
         _G[myHero.charName]()
     end
 end
@@ -307,9 +308,6 @@ function Xayah:OnTick()
 end
 function Xayah:OnDraw()
     if not myHero.dead then
-        if LulzMenu.Draw.AA.Enabled then
-            _G.Lulzlib:RenderCircle("AA")
-        end
         if LulzMenu.Draw.Q.Enabled and (_G.Lulzlib:IsQReady() or not LulzMenu.Draw.Q.Hide) then
             _G.Lulzlib:RenderCircle("Q")
         end
@@ -586,7 +584,7 @@ function Xayah:UltimateJuke(unit,spell)
                         elseif self.jukeTable[unit.charName][i].type == 3 then
                         elseif self.jukeTable[unit.charName][i].type == 4 then
                         elseif self.jukeTable[unit.charName][i].type == 5 then
-                            if spell.Target.isMe then
+                            if spell.target.isMe then
                                 CastSpell(_R, unit.x, unit.z)
                             end
                         end
