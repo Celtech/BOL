@@ -1,8 +1,8 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .07
+    self.version = .08
 
-    self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round
+    self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
     self.pairs, self.ipairs = pairs, ipairs
     self.insert, self.remove = table.insert, table.remove
@@ -34,9 +34,6 @@ end
 function Lulzlib:CreateBaseMenu()
     _G.LulzMenu = scriptConfig("Lulz"..myHero.charName, myHero.charName .. "lulz")
     LulzMenu:addSubMenu("Drawing Menu", "Draw")
-        LulzMenu.Draw:addSubMenu("AA Settings", "AA")
-            LulzMenu.Draw.AA:addParam("Enabled", "Draw AA Range", 1, true)
-            LulzMenu.Draw.AA:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,255,0,0})
         LulzMenu.Draw:addSubMenu("Q Settings", "Q")
             LulzMenu.Draw.Q:addParam("Enabled", "Draw Range", 1, true)
             LulzMenu.Draw.Q:addParam("Hide", "Don't Draw When Not Castable", 1, true)
@@ -97,7 +94,7 @@ function Lulzlib:CreateBaseMenu()
     LulzMenu:addSubMenu("Hotkeys Menu", "Hotkeys")
          LulzMenu.Hotkeys:addParam("FleeKey", "Flee Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("G"))
     LulzMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
-    LulzMenu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Dance","Taunt","Laugh","Joke","Mastery"})
+    LulzMenu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Dance","Taunt","Laugh","Joke"})
     LulzMenu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_SLICE, 0, 0, 25, 0)
     LulzMenu:setCallback("Skins", function(v)
         SetSkin(myHero, v - 1)
@@ -637,6 +634,68 @@ function ItemsAndSummoners:TauntOnKill()
 	end
 end
 
+class "recallTracker"
+function recallTracker:__init()
+	self.enemyHeros = GetEnemyHeroes()
+	self.recallStatus = {}
+	self.recallTimes = {
+		['recall'] = 7.9,
+		['odinrecall'] = 4.4,
+		['odinrecallimproved'] = 3.9,
+		['recallimproved'] = 6.9,
+		['superrecall'] = 3.9,
+	}
+    self.activeRecalls = {}
+    self.lasttime={}
+	
+	for i, enemy in pairs(self.enemyHeros) do
+    	self.recallStatus[enemy.charName] = enemy.recall
+    end
+	
+	AddTickCallback(function()
+    	for i, enemy in pairs(self.enemyHeros) do
+    		if enemy.recall ~= self.recallStatus[enemy.charName] then
+    			self:track(enemy, enemy.recall)
+    		end
+    		self.recallStatus[enemy.charName] = enemy.recall
+    	end
+    end)
+end
+function recallTracker:track(Hero, Status)
+	local o = Hero
+	if o and o.valid and o.type == 'AIHeroClient' then
+		local str = Status 
+		if self.recallTimes[str:lower()] then
+			if LulzMenu.General.Verbose then
+				Lulzlib:Log(o.charName.." is recalling." )
+			end
+			self.activeRecalls[o.networkID] = {
+            					name = o.charName,
+            					startT = os.clock(),
+            					duration = self.recallTimes[str:lower()],
+            					endT = os.clock() + self.recallTimes[str:lower()],
+                                startHP = o.health,
+                                hpRegen = o.hpRegen,
+                                object = o
+            				}
+			return
+		elseif self.activeRecalls[o.networkID] then
+			if self.activeRecalls[o.networkID] and self.activeRecalls[o.networkID].endT > os.clock() then
+				if LulzMenu.General.Verbose then
+					Lulzlib:Log(self.activeRecalls[o.networkID].name.." canceled recall")
+				end
+				recallTime,recallName,blockName,self.activeRecalls[o.networkID] = nil,nil,nil,nil
+			else
+				if LulzMenu.General.Verbose then
+					Lulzlib:Log(self.activeRecalls[o.networkID].name.." finished recall")
+				end
+				recallTime,recallName,blockName,self.activeRecalls[o.networkID] = nil,nil,nil,nil
+				return
+			end
+		end
+	end
+end
+
 class "AntiBaseUlt"
 function AntiBaseUlt:__init()
     self.lower, self.clock, self.recallingTime = string.lower, _G.Lulzlib.clock(), 0
@@ -1019,24 +1078,27 @@ class "Orbwalker"
 function Orbwalker:__init()
     local orbwalker = nil
     Orbwalker.timer = _G.Lulzlib.clock()
+	
+	DelayAction(function()
+		LulzMenu.Hotkeys:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+		LulzMenu.Hotkeys:addParam("CustomKey", "Use Custom Combat Keys", SCRIPT_PARAM_ONOFF, false)
+		LulzMenu.Hotkeys:setCallback("CustomKey", function(v)
+			if v == true then
+				LulzMenu.Hotkeys:removeParam("Orbwalker")
+				LulzMenu.Hotkeys:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
+				LulzMenu.Hotkeys:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
+				LulzMenu.Hotkeys:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
+				LulzMenu.Hotkeys:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+			elseif v == false then
+				LulzMenu.Hotkeys:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
+				LulzMenu.Hotkeys:removeParam("Combo")
+				LulzMenu.Hotkeys:removeParam("Harass")
+				LulzMenu.Hotkeys:removeParam("Laneclear")
+				LulzMenu.Hotkeys:removeParam("Lasthit")
+			end
+		end)
+	end,2)
 
-    LulzMenu:addSubMenu("Orbwalker Menu", "Orbwalker")
-        LulzMenu.Orbwalker:addParam("CustomKey", "Use Custom Combat Keys", SCRIPT_PARAM_ONOFF, false)
-        LulzMenu.Orbwalker:setCallback("CustomKey", function(v)
-        	if v == true then
-        		LulzMenu.Orbwalker:removeParam("Orbwalker")
-        		LulzMenu.Orbwalker:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
-        		LulzMenu.Orbwalker:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
-        		LulzMenu.Orbwalker:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
-        		LulzMenu.Orbwalker:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
-        	elseif v == false then
-        		LulzMenu.Orbwalker:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
-        		LulzMenu.Orbwalker:removeParam("Combo")
-        		LulzMenu.Orbwalker:removeParam("Harass")
-        		LulzMenu.Orbwalker:removeParam("Laneclear")
-        		LulzMenu.Orbwalker:removeParam("Lasthit")
-        	end
-    	end)
 
     AddTickCallback(function() self:FindOrbwalker() end)
 end
@@ -1051,7 +1113,7 @@ function Orbwalker:FindOrbwalker()
     elseif _Pewalk then
         orbwalker = "PEWalk"
     else
-        if Orbwalker.timer + 15 <= _G.Lulzlib.clock() then
+        if Orbwalker.timer + 20 <= _G.Lulzlib.clock() then
             orbwalker = "SX"
             if FileExist(LIB_PATH.."SxOrbWalk.lua") then
                 require "SxOrbWalk"
@@ -1062,18 +1124,20 @@ function Orbwalker:FindOrbwalker()
             end
         end
     end
-
-    if orbwalker ~= nil and not LulzMenu.Orbwalker.CustomKey then
-        LulzMenu.Orbwalker:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
-    elseif orbwalker ~= nil then
-        LulzMenu.Orbwalker:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
-        LulzMenu.Orbwalker:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
-        LulzMenu.Orbwalker:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
-        LulzMenu.Orbwalker:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
-    end
+	
+	if orbwalker ~= nil and not LulzMenu.Hotkeys.CustomKey then
+		DelayAction(function() LulzMenu.Hotkeys:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "") end, 2)
+	elseif orbwalker ~= nil then
+		DelayAction(function()
+			LulzMenu.Hotkeys:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
+			LulzMenu.Hotkeys:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
+			LulzMenu.Hotkeys:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
+			LulzMenu.Hotkeys:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+		end, 2)
+	end
 end
 function Orbwalker:IsFighting()
-    if not LulzMenu.Orbwalker.CustomKey then
+    if not LulzMenu.Hotkeys.CustomKey then
         if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
             return _G.AutoCarry.Keys.AutoCarry
         elseif orbwalker == "MMA" then
@@ -1084,11 +1148,11 @@ function Orbwalker:IsFighting()
             return _G.SxOrb.isFight
         end
     else
-        return LulzMenu.Orbwalker.Combo
+        return LulzMenu.Hotkeys.Combo
     end
 end
 function Orbwalker:IsHarassing()
-    if not LulzMenu.Orbwalker.CustomKey then
+    if not LulzMenu.Hotkeys.CustomKey then
         if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
             return _G.AutoCarry.Keys.MixedMode
         elseif orbwalker == "MMA" then
@@ -1099,11 +1163,11 @@ function Orbwalker:IsHarassing()
             return _G.SxOrb.isHarass
         end
     else
-        return LulzMenu.Orbwalker.Harass
+        return LulzMenu.Hotkeys.Harass
     end
 end
 function Orbwalker:IsLaneClearing()
-    if not LulzMenu.Orbwalker.CustomKey then
+    if not LulzMenu.Hotkeys.CustomKey then
         if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
             return _G.AutoCarry.Keys.LaneClear
         elseif orbwalker == "MMA" then
@@ -1114,11 +1178,11 @@ function Orbwalker:IsLaneClearing()
             return _G.SxOrb.isLaneClear
         end
     else
-        return LulzMenu.Orbwalker.LaneClear
+        return LulzMenu.Hotkeys.LaneClear
     end
 end
 function Orbwalker:IsLastHitting()
-    if not LulzMenu.Orbwalker.CustomKey then
+    if not LulzMenu.Hotkeys.CustomKey then
         if orbwalker == "SAC:R" or orbwalker == "SAC:P" then
             return _G.AutoCarry.Keys.LaneClear
         elseif orbwalker == "MMA" then
@@ -1129,7 +1193,7 @@ function Orbwalker:IsLastHitting()
             return _G.SxOrb.isLaneClear
         end
     else
-        return LulzMenu.Orbwalker.LaneClear
+        return LulzMenu.Hotkeys.LaneClear
     end
 end
 function Orbwalker:GetOrbwalkerTarget()
@@ -1190,7 +1254,7 @@ end
 class "Prediction"
 function Prediction:__init(menu)
     _G.predictonTable = {
-        ["Predictions"] = {{"VPrediction", 2, 1, 3, 0}, {"FHPrediction", 1.1, 1, 2, 2}, {"HPrediction", 1.05, 0, 3, 2}, {"TRPrediction", 1, 0, 2.5, 1}, {"KPrediction", 1.75, 0, 3, 2}},
+        ["Predictions"] = {{"VPrediction", 2, 1, 3, 0}, {"FHPrediction", 1.1, 1, 2, 2}, {"HPrediction", 1.05, 0, 3, 2}, {"TRPrediction", 0, 0, 0, 0}, {"KPrediction", 1.75, 0, 3, 2}},
         ["FoundPredictions"] = {},
         ["LoadedPredictions"] = {},
         ["GlobalCallbacks"] = {},
@@ -1210,6 +1274,11 @@ function Prediction:__init(menu)
             self.menuItems[i]:modifyParam("Accuracy", "min",  _G.predictonTable.Predictions[v][3])
             self.menuItems[i]:modifyParam("Accuracy", "max",  _G.predictonTable.Predictions[v][4])
             self.menuItems[i]:modifyParam("Accuracy", "idc",  _G.predictonTable.Predictions[v][5])
+			if _G.predictonTable.FoundPredictions[v] == "TRPrediction" then
+				self.menuItems[i]:modifyParam("Accuracy", "text",  "TRPrediction can't be changed")
+			else
+				self.menuItems[i]:modifyParam("Accuracy", "text",  "Prediction Accuracy")
+			end
         end
     end)
     AddTickCallback(function() self:ActivePrediction() end)
@@ -1253,7 +1322,7 @@ function Prediction:GetLineCastPosition(target, spellTable, usePreset)
         elseif _G.predictonTable.ActivePrediction == "HPrediction" then
             return activePrediction:GetPredict(HPSkillshot({type = "DelayLine", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collisionM = spellTable.collision, collisionH = spellTable.collision, width = spellTable.width}), target, myHero)
         elseif _G.predictonTable.ActivePrediction == "TRPrediction" then
-            return activePrediction:GetPrediction(TR_BindSS({type = 'IsLinear', delay = spellTable.delay, range = spellTable.range, width = spellTable.width, speed = spellTable.speed, allowedCollisionCount = 0}), target, myHero)
+            return activePrediction:GetPrediction(TR_BindSS({type = 'IsLinear', delay = spellTable.delay, range = spellTable.range, width = spellTable.width, speed = spellTable.speed, allowedCollisionCount = math.huge}), target, myHero),100
         elseif _G.predictonTable.ActivePrediction == "KPrediction" then
             return activePrediction:GetPrediction(KPSkillshot({type = "DelayLine", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collision = spellTable.collision, width = spellTable.width}), target, myHero);
         end
@@ -1268,12 +1337,7 @@ function Prediction:GetCircularCastPosition(target, spellTable, usePreset)
         elseif _G.predictonTable.ActivePrediction == "HPrediction" then
             return activePrediction:GetPredict(HPSkillshot({type = "DelayCircle", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collisionM = spellTable.collision, collisionH = spellTable.collision, radius = spellTable.radius}), target, myHero);
         elseif _G.predictonTable.ActivePrediction == "TRPrediction" then
-            local CastPosition, HitChance, Info = activePrediction:GetPrediction(TR_BindSS({type = 'IsRadial', delay = spellTable.delay, range = spellTable.range, radius = spellTable.radius, speed = spellTable.speed}), target, myHero)
-            if spellTable.collision and not Info then
-                return CastPosition, HitChance
-            elseif not spellTable.collision then
-                return CastPosition, HitChance
-            end
+            return activePrediction:GetPrediction(TR_BindSS({type = 'IsRadial', delay = spellTable.delay, range = spellTable.range, radius = spellTable.radius, speed = spellTable.speed, allowedCollisionCount = math.huge}), target, myHero)
         elseif _G.predictonTable.ActivePrediction == "KPrediction" then
             return activePrediction:GetPrediction(KPSkillshot({type = "DelayCircle", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collision = spellTable.collision, radius = spellTable.radius}), target, myHero);
         end
@@ -1288,12 +1352,7 @@ function Prediction:GetConeCastPosition(target, spellTable, usePreset)
         elseif _G.predictonTable.ActivePrediction == "HPrediction" then
             return activePrediction:GetPredict(HPSkillshot({type = "DelayArc", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collisionM = spellTable.collision, collisionH = spellTable.collision, angle = spellTable.angle}), target, myHero);
         elseif _G.predictonTable.ActivePrediction == "TRPrediction" then
-            local CastPosition, HitChance, Info = activePrediction:GetPrediction(TR_BindSS({type = 'IsConic', delay = spellTable.delay, range = spellTable.range, angle = spellTable.angle , speed = spellTable.speed}), target, myHero)
-            if spellTable.collision and not Info then
-                return CastPosition, HitChance
-            elseif not spellTable.collision then
-                return CastPosition, HitChance
-            end
+            return activePrediction:GetPrediction(TR_BindSS({type = 'IsConic', delay = spellTable.delay, range = spellTable.range, angle = spellTable.angle , speed = spellTable.speed, allowedCollisionCount = math.huge}), target, myHero)
         elseif _G.predictonTable.ActivePrediction == "KPrediction" then
             return activePrediction:GetPrediction(KPSkillshot({type = "DelayArc", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collision = spellTable.collision, angle = spellTable.angle}), target, myHero);
         end
