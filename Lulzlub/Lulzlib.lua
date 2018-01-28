@@ -1322,7 +1322,7 @@ function Prediction:GetLineCastPosition(target, spellTable, usePreset)
         elseif _G.predictonTable.ActivePrediction == "HPrediction" then
             return activePrediction:GetPredict(HPSkillshot({type = "DelayLine", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collisionM = spellTable.collision, collisionH = spellTable.collision, width = spellTable.width}), target, myHero)
         elseif _G.predictonTable.ActivePrediction == "TRPrediction" then
-            return activePrediction:GetPrediction(TR_BindSS({type = 'IsLinear', delay = spellTable.delay, range = spellTable.range, width = spellTable.width, speed = spellTable.speed, allowedCollisionCount = math.huge}), target, myHero),100
+            return activePrediction:GetPrediction(TR_BindSS({type = 'IsLinear', delay = spellTable.delay, range = spellTable.range, width = spellTable.width, speed = spellTable.speed, allowedCollisionCount = spellTable.collision and ((myHero.charName=="Lux" or myHero.charName=="Veigar") and 1 or 0) or math.huge}), target, myHero),100
         elseif _G.predictonTable.ActivePrediction == "KPrediction" then
             return activePrediction:GetPrediction(KPSkillshot({type = "DelayLine", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collision = spellTable.collision, width = spellTable.width}), target, myHero);
         end
