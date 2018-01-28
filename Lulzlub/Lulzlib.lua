@@ -1,6 +1,6 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .07
+    self.version = .08
 
     self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
