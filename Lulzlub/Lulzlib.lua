@@ -1,6 +1,6 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .08
+    self.version = .07
 
     self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
@@ -1382,7 +1382,7 @@ function Prediction:GetPredictedPosistion(hero, delay)
         elseif _G.predictonTable.ActivePrediction == "HPrediction" then
             return HPrediction:PredictPos(hero, delay)
         elseif _G.predictonTable.ActivePrediction == "TRPrediction" then
-            return TRPrediction:GetUnitPosition(hero, delay)
+            return TRPrediction:GetUnitPosition(hero, delay, false)
         elseif _G.predictonTable.ActivePrediction == "KPrediction" then
             return activePrediction:GetPos(hero, delay)
         end
