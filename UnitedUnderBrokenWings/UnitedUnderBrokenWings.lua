@@ -17,7 +17,7 @@ function OnLoad()
         AntiBaseUlt()
         Humanizer()
         ThreshLantern()
-		recallTracker()
+	recallTracker()
         _G[myHero.charName]()
     end
 end
