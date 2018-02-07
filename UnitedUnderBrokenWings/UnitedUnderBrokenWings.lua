@@ -3,7 +3,7 @@ assert(load(Base64Decode("G0x1YVIAAQQEBAgAGZMNChoKAAAAAAAAAAAAAQMeAAAABAAAAEYAQA
 TrackerLoad("7c0PSV2nxVLfueY5")
 
 function OnLoad()
-    local version = 0.14
+    local version = 0.15
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -27,7 +27,228 @@ end
 
 class "Rakan"
 function Rakan:__init()
-    _G.Lulzlib:Log("Rakan is currently under development. He will be added soon <3.")
+    Rakan.SpellTable = {
+        AA = {range = myHero.range + myHero.boundingRadius},
+        Q = {range = 900, speed = 2000, delay = 0.25, width = 75, collision = true},
+        W = {range = 650, speed = 2050, delay = 0.25, radius = 250, collision = false},
+        E = {range = 1000, speed = 2000, delay = 0.25, width = 75, collision = false},
+        R = {range = 1040, speed = 2000, delay = 0.50, angle = 150, collision = false, aoe = true}
+    }
+    Rakan.spellDmg = {
+        [_Q] = function(unit) if _G.Lulzlib:IsQReady() then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_Q).level * 45) + 25) + (myHero.ap * 0.5)))) end end,
+        [_W] = function(unit) if _G.Lulzlib:IsEReady() then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_W).level * 45) + 25) + (myHero.ap * 0.5)))) end end,
+    }
+
+    self.enemyHeros = GetEnemyHeroes()
+    self.allyHeros = GetAllyHeroes()
+    self.enemyMinions = minionManager(MINION_ENEMY, self.SpellTable.Q.range - 400, myHero, MINION_SORT_HEALTH_ASC)
+    self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MAXHEALTH_ASC)
+
+
+    self:AddToMenu()
+    AddDrawCallback(function() self:OnDraw() end)
+    AddTickCallback(function() self:OnTick() end)
+end
+function Rakan:AddToMenu()
+    LulzMenu.Hotkeys:addParam("UltKey", "Ultimate Hotkey", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("R"))
+
+    LulzMenu.Draw.E:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,128,128,128})
+
+    LulzMenu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 2,{"Off","Last Hit","Clear"})
+    LulzMenu.Spell.QMenu:addParam("EnableJungle", "Use in jungle", 1, true)
+    LulzMenu.Spell.QMenu:addParam("EnableKillSteal", "Use in kill steal", 1, true)
+    LulzMenu.Spell.QMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.QMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+    LulzMenu.Spell.QMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.QMenu:addParam("jungleMana", "Jungle clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.QMenu:addParam("PlaceHolder2", "", SCRIPT_PARAM_INFO, "")
+    Prediction:AddToMenu(LulzMenu.Spell.QMenu)
+
+    LulzMenu.Spell.WMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.WMenu:addParam("EnableHarass", "Use in harass", 1, false)
+    LulzMenu.Spell.WMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 1,{"Off","Last Hit","Clear"})
+    LulzMenu.Spell.WMenu:addParam("EnableJungle", "Use in jungle", 1, true)
+    LulzMenu.Spell.WMenu:addParam("EnableKillSteal", "Use in kill steal", 1, true)
+    LulzMenu.Spell.WMenu:addParam("RakanCheck", "Check for Rakan before cast", 1, true)
+    LulzMenu.Spell.WMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.WMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
+    LulzMenu.Spell.WMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.WMenu:addParam("jungleMana", "Jungle clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.WMenu:addParam("Buffer", "Rakan buffer range check", SCRIPT_PARAM_SLICE, 100, 0, 500, 0)
+    Prediction:AddToMenu(LulzMenu.Spell.WMenu)
+
+    LulzMenu.Spell.EMenu:addParam("EnableCombo", "Use in combo", 1, true)
+    LulzMenu.Spell.EMenu:addParam("EnableHarass", "Use in harass", 1, true)
+    LulzMenu.Spell.EMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 1,{"Off","Last Hit","Clear"})
+    LulzMenu.Spell.EMenu:addParam("EnableJungle", "Use in jungle", 1, true)
+    LulzMenu.Spell.EMenu:addParam("EnableKillSteal", "Use in kill steal", 1, true)
+    LulzMenu.Spell.EMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+    LulzMenu.Spell.EMenu:addParam("Feathers", "Min number of feathers to hit", SCRIPT_PARAM_SLICE, 3, 1, 10, 0)
+    LulzMenu.Spell.EMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 70, 0, 100, 0)
+    LulzMenu.Spell.EMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+    LulzMenu.Spell.EMenu:addParam("jungleMana", "Jungle clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+
+    LulzMenu.Spell.RMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "Ult must be casted manually.")
+end
+function Rakan:OnDraw()
+    if not myHero.dead then
+        if LulzMenu.Draw.Q.Enabled and (_G.Lulzlib:IsQReady() or not LulzMenu.Draw.Q.Hide) then
+            _G.Lulzlib:RenderCircle("Q")
+        end
+        if LulzMenu.Draw.W.Enabled and (_G.Lulzlib:IsWReady() or not LulzMenu.Draw.W.Hide) then
+            _G.Lulzlib:RenderCircle("W")
+        end
+        if LulzMenu.Draw.E.Enabled and (_G.Lulzlib:IsEReady() or not LulzMenu.Draw.E.Hide) then
+            _G.Lulzlib:RenderCircle("E")
+        end
+        if LulzMenu.Draw.R.Enabled and (_G.Lulzlib:IsRReady() or not LulzMenu.Draw.R.Hide) then
+            --_G.Lulzlib:RenderCircle("R")
+        end
+
+        if LulzMenu.Draw.DrawTarget then
+            if Target ~= nil then
+                DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
+            end
+        end
+    end
+end
+function Rakan:OnTick()
+    _G.Target = CTargetSelector:GetTarget()
+
+    self:Combo()
+    self:Harass()
+    self:LaneClear()
+    --self:KillSteal()
+    --self:FleeMode()
+end
+function Rakan:CastQ(enemy)
+    if _G.Lulzlib:IsQReady() then
+        local CastPosition, HitChance, Info = Prediction:GetLineCastPosition(enemy, self.SpellTable.Q)
+        if CastPosition and HitChance >= LulzMenu.Spell.QMenu.Accuracy then
+            CastSpell(_Q, CastPosition.x, CastPosition.z)
+        end
+    end
+end
+function Rakan:CastW(enemy)
+    if _G.Lulzlib:IsWReady() then
+        local CastPosition, HitChance, Info = Prediction:GetCircularCastPosition(enemy, self.SpellTable.W)
+        if CastPosition and HitChance >= LulzMenu.Spell.WMenu.Accuracy then
+            CastSpell(_W, CastPosition.x, CastPosition.z)
+        end
+    end
+end
+function Rakan:CastE(enemy)
+    if _G.Lulzlib:IsEReady() then
+        CastSpell(_E, enemy)
+    end
+end
+function Rakan:CastR(enemy)
+    local CastPosition, HitChance, Info = Prediction:GetConeCastPosition(enemy, self.SpellTable.R)
+    if CastPosition and HitChance >= LulzMenu.Spell.RMenu.Accuracy then
+        CastSpell(_R, CastPosition.x, CastPosition.z)
+    end
+end
+function Rakan:Combo()
+    if Orbwalker:IsFighting() then
+        if ValidTarget(Target) then
+            if LulzMenu.Spell.QMenu.EnableCombo then
+                if _G.Lulzlib:IsQReady() then
+                    self:CastQ(Target)
+                end
+            end
+
+            if LulzMenu.Spell.WMenu.EnableCombo then
+                if _G.Lulzlib:IsWReady() then
+                    self:CastW(Target)
+                end
+            end
+
+            if LulzMenu.Spell.EMenu.EnableCombo then
+                if _G.Lulzlib:IsEReady() and not _G.Lulzlib:IsWReady() then
+                    for i, ally in _G.Lulzlib.pairs(self.allyHeros) do
+                        if ally.charName == "Xayah" then
+                            if GetDistanceSqr(ally) < self.SpellTable.E.range * self.SpellTable.E.range then
+                                self:CastE(ally)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+function Rakan:Harass()
+    if Orbwalker:IsHarassing() then
+        if ValidTarget(Target) then
+            if LulzMenu.Spell.QMenu.EnableHarass and LulzMenu.Spell.QMenu.HarassMana >= _G.Lulzlib:ManaPercent() then
+                if _G.Lulzlib:IsQReady() then
+                    self:CastQ(Target)
+                end
+            end
+
+            if LulzMenu.Spell.WMenu.EnableHarass and LulzMenu.Spell.WMenu.HarassMana >= _G.Lulzlib:ManaPercent() then
+                if _G.Lulzlib:IsWReady() then
+                    self:CastW(Target)
+                end
+            end
+
+            if LulzMenu.Spell.EMenu.EnableHarass and LulzMenu.Spell.EMenu.HarassMana >= _G.Lulzlib:ManaPercent() then
+                if _G.Lulzlib:IsEReady() then
+                    --self:CastE(Target)
+                end
+            end
+        end
+    end
+end
+function Rakan:LaneClear()
+    if Orbwalker:IsLaneClearing() then
+        if LulzMenu.Spell.QMenu.EnableJungle and LulzMenu.Spell.QMenu.jungleMana < _G.Lulzlib:ManaPercent() then
+            self.jungleMinions:update()
+            if _G.Lulzlib:IsQReady() then
+                for i, jungle in _G.Lulzlib.pairs(self.jungleMinions.objects) do
+                    if jungle ~= nil and ValidTarget(jungle) and GetDistance(jungle) < self.SpellTable.Q.range and string.split(jungle.charName,'_')[2] ~= "Plant" then
+                        self:CastQ(jungle)
+                    end
+                end
+            end
+        end
+
+        if LulzMenu.Spell.WMenu.EnableJungle and LulzMenu.Spell.WMenu.jungleMana < _G.Lulzlib:ManaPercent() then
+            self.jungleMinions:update()
+            if _G.Lulzlib:IsWReady() then
+                for i, jungle in _G.Lulzlib.pairs(self.jungleMinions.objects) do
+                    if jungle ~= nil and ValidTarget(jungle) and GetDistance(jungle) < self.SpellTable.Q.range and string.split(jungle.charName,'_')[2] ~= "Plant" then
+                        self:CastW(jungle)
+                    end
+                end
+            end
+        end
+
+        if LulzMenu.Spell.QMenu.EnableClear > 1 or LulzMenu.Spell.WMenu.EnableClear > 1 or LulzMenu.Spell.EMenu.EnableClear > 1  then
+            self.enemyMinions:update()
+            for i, minion in _G.Lulzlib.pairs(self.enemyMinions.objects) do
+                if minion ~= nil and ValidTarget(minion) and GetDistance(minion) < self.SpellTable.Q.range then
+                    if LulzMenu.Spell.QMenu.EnableClear == 3 and _G.Lulzlib:IsQReady() and LulzMenu.Spell.QMenu.ClearMana < _G.Lulzlib:ManaPercent() then
+                        self:CastQ(minion)
+                    elseif LulzMenu.Spell.QMenu.EnableClear == 2 and _G.Lulzlib:IsQReady() and LulzMenu.Spell.QMenu.ClearMana < _G.Lulzlib:ManaPercent() then
+                        if _G.Lulzlib:GetDamage(_Q, minion) > minion.health then
+                            self:CastQ(minion)
+                        end
+                    end
+
+                    if LulzMenu.Spell.WMenu.EnableClear == 3 and _G.Lulzlib:IsWReady() and LulzMenu.Spell.WMenu.ClearMana < _G.Lulzlib:ManaPercent() then
+                        self:CastE(minion)
+                    elseif LulzMenu.Spell.WMenu.EnableClear == 2 and _G.Lulzlib:IsWReady() and LulzMenu.Spell.WMenu.ClearMana < _G.Lulzlib:ManaPercent() then
+                        if _G.Lulzlib:GetDamage(_W, minion) > minion.health then
+                            self:CastW(minion)
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
 
 class "Xayah"
@@ -278,6 +499,7 @@ function Xayah:AddToMenu()
     LulzMenu.Spell.RMenu:addParam("EnableClear", "Use in lane clear", 1, false)
     LulzMenu.Spell.RMenu:addParam("EnableJungle", "Use in jungle", 1, false)
     LulzMenu.Spell.RMenu:addParam("EnableKillSteal", "Use in kill steal", 1, true)
+    LulzMenu.Spell.RMenu:addParam("MinUlt", "Min number of enemies to ult", SCRIPT_PARAM_SLICE, 3, 1, 5, 0)
     LulzMenu.Spell.RMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
     LulzMenu.Spell.RMenu:addParam("HarassMana", "Harass mana managment % >", SCRIPT_PARAM_SLICE, 30, 0, 100, 0)
     LulzMenu.Spell.RMenu:addParam("ClearMana", "Lane clear mana managment % >", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
@@ -583,9 +805,14 @@ function Xayah:UltimateJuke(unit,spell)
                             end
                         elseif self.jukeTable[unit.charName][i].type == 3 then
                         elseif self.jukeTable[unit.charName][i].type == 4 then
+                            if IsOnPath(unit, spell.endPos, self.jukeTable[unit.charName][i].range) then
+                                CastSpell(_R, unit.x, unit.z)
+                            end
                         elseif self.jukeTable[unit.charName][i].type == 5 then
                             if spell.target.isMe then
-                                CastSpell(_R, unit.x, unit.z)
+                                DelayAction(function()
+                                    CastSpell(_R, unit.x, unit.z)
+                                end, .2)
                             end
                         end
                     end
