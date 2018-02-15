@@ -1,7 +1,7 @@
 if myHero.charName ~= "Teemo" then return end
 
 function OnLoad()
-    local version = 0.01
+    local version = 0.02
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -27,6 +27,9 @@ class "Teemo"
 function Teemo:__init()
 	self.basePos = {[100] = Vector(2088, 0, 2222), [200] = Vector(12759, 0, 12861)}
 	self.nextUltCast = 0
+	self.lastCommand = 0
+	self.stealthTime = 0
+	self.stealthing = false
     Teemo.SpellTable = {
         Q = {range = 675, speed = 2200, delay = 0.625, width = 70, collision = false},
 		R = {range = {400,650,900}, speed = 2200, delay = 0.625, radius = 60, collision = false},
@@ -40,6 +43,7 @@ function Teemo:__init()
     AddDrawCallback(function() self:OnDraw() end)
     AddTickCallback(function() self:OnTick() end)
 	AddNewPathCallback(function(unit, startPos, endPos, isDash, dashSpeed, dashGravity, dashDistance) self:OnNewPath(unit, startPos, endPos, isDash, dashSpeed, dashGravity, dashDistance) end)
+	AddIssueOrderCallback(function(source, order, position, target) self:OnIssueOrder(source, order, position, target) end)
 end
 function Teemo:AddToMenu()
 	LulzMenu.Draw.E:removeParam("Enabled")
@@ -47,7 +51,7 @@ function Teemo:AddToMenu()
 	LulzMenu.Draw.W:removeParam("Enabled")
 	LulzMenu.Draw.W:removeParam("Hide")
 	LulzMenu.Draw.W:removeParam("CircleColor")
-
+	LulzMenu.Draw:addParam("StealthTracker", "Draw stealth tracker", 1, true)
     LulzMenu.Spell.QMenu:addParam("EnableCombo", "Use in combo", 1, true)
     LulzMenu.Spell.QMenu:addParam("EnableHarass", "Use in harass", 1, true)
     LulzMenu.Spell.QMenu:addParam("EnableClear", "Use in clear", SCRIPT_PARAM_LIST, 2,{"Off","Last Hit","Clear"})
@@ -82,13 +86,37 @@ function Teemo:OnDraw()
         if LulzMenu.Draw.R.Enabled and (_G.Lulzlib:IsRReady() or not LulzMenu.Draw.R.Hide) then
             _G.Lulzlib:RenderCircle("R")
         end
-
+		
+		if LulzMenu.Draw.StealthTracker then
+			if GetDistance(myHero.endPath) == 0 or IsWallOfGrass(myHero.pos) then
+				if self.stealthTime > Lulzlib.clock() then
+					Lulzlib:ShadowText(tostring(self.stealthTime - Lulzlib.clock()):sub(0,4), myHero)
+					self.stealthing = true
+				else
+					if not self.stealthing then
+						self.stealthTime = Lulzlib.clock() + 1.6
+					end
+				end
+			end
+		end
+		
         if LulzMenu.Draw.DrawTarget then
             if Target ~= nil then
                 DrawCircle3D(Target.x, Target.y, Target.z, 100, 1, ARGB(255,255,0,0), 100)
             end
         end
     end
+end
+function Teemo:OnIssueOrder(source, order, position, target)
+	if not LulzMenu.Draw.StealthTracker then return end
+	if source == myHero then
+		self.lastCommand = _G.Lulzlib.clock()
+		
+		if not IsWallOfGrass(myHero.pos) then
+			self.stealthing = false
+			self.stealthTime = 0
+		end
+	end
 end
 function Teemo:OnTick()
     _G.Target = CTargetSelector:GetTarget()
