@@ -1,6 +1,6 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .08
+    self.version = .09
 
     self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
@@ -25,8 +25,19 @@ end
 function Lulzlib:ReturnColor(color)
     return ARGB(color[1],color[2],color[3],color[4])
 end
-function Lulzlib:Log(message)
-    print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>"..message.."</font>")
+function Lulzlib:Log(message, level)
+	if level == 1 then
+		if LulzMenu.General.Debug == 2 then 
+			print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>"..message.."</font>")
+		end
+	elseif level == 2 then
+		if LulzMenu.General.Debug == 3 then 
+			print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>"..message.."</font>")
+		end
+	else
+		print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>"..message.."</font>")
+	end
+    
 end
 function Lulzlib:BoolToInt(var)
     return var and 1 or 0
@@ -91,6 +102,7 @@ function Lulzlib:CreateBaseMenu()
         LulzMenu.General:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         LulzMenu.General:addParam("Lane", "Get to lane faster", 1, true)
         LulzMenu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
+		LulzMenu.General:addParam("Debug", "Verbose Level", SCRIPT_PARAM_LIST, 2, {"None","Verbose","Debug"})
     LulzMenu:addSubMenu("Hotkeys Menu", "Hotkeys")
          LulzMenu.Hotkeys:addParam("FleeKey", "Flee Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("G"))
     LulzMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
@@ -101,10 +113,18 @@ function Lulzlib:CreateBaseMenu()
     end)
 end
 function Lulzlib:RenderCircle(skill)
+	local range = 0
+	local value = {Q = 0, W = 1, E = 2, R = 3}
+	if type(_G[myHero.charName].SpellTable[skill].range) == "table" then
+		range = _G[myHero.charName].SpellTable[skill].range[myHero:GetSpellData(value[skill]).level]
+	else
+		range = _G[myHero.charName].SpellTable[skill].range
+	end
+	
     if LulzMenu.Draw.LowFPS then
-        DrawCircle3D(myHero.x, myHero.y, myHero.z, _G[myHero.charName].SpellTable[skill].range, 1, self:ReturnColor(LulzMenu.Draw[skill].CircleColor), LulzMenu.Draw.Quality)
+        DrawCircle3D(myHero.x, myHero.y, myHero.z, range, 1, self:ReturnColor(LulzMenu.Draw[skill].CircleColor), LulzMenu.Draw.Quality)
     else
-        DrawCircle(myHero.x, myHero.y, myHero.z, _G[myHero.charName].SpellTable[skill].range, self:ReturnColor(LulzMenu.Draw[skill].CircleColor))
+        DrawCircle(myHero.x, myHero.y, myHero.z, range, self:ReturnColor(LulzMenu.Draw[skill].CircleColor))
     end
 end
 function Lulzlib:GetDamage(spell, unit)
@@ -117,6 +137,10 @@ function Lulzlib:GetDamage(spell, unit)
     else
         return _G[myHero.charName].spellDmg[spell](unit) or 0
     end
+end
+function Lulzlib:ShadowText(text, unit)
+	DrawText3D(text, unit.x - 5, unit.y + 300, unit.z, 36, 0xff000000, false)
+	DrawText3D(text, unit.x, unit.y + 300, unit.z, 36, 0xffffffff, false)
 end
 
 class "ItemsAndSummoners"
