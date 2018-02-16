@@ -1,21 +1,21 @@
 if myHero.charName ~= "Nasus" then return end
 
 function OnLoad()
-    local version = 0.01
+    local version = 0.03
     CheckUpdatesLib()
     CheckUpdates(version)
 
     if _G.Lulzlib then
-        _G.Lulzlib:CreateBaseMenu()
+        _G.Lulzlib:CreateBaseMenu("Susan - The QQStacker")
         SetSkin(myHero, LulzMenu.Skins - 1)
         Orbwalker()
         Prediction(LulzMenu.General)
         CTargetSelector()
-        ItemsAndSummoners()
+        ItemsAndSummoners(2)
         AntiBaseUlt()
         Humanizer()
         ThreshLantern()
-	recallTracker()
+		recallTracker()
         _G[myHero.charName]()
     end
 end
@@ -221,7 +221,6 @@ function Nasus:FleeMode()
     end
 end
 
-
 class "SxScriptUpdate"
 function CheckUpdatesLib()
     local ToUpdate = {}
@@ -251,8 +250,8 @@ function CheckUpdates(Version)
 	local ToUpdate = {}
     ToUpdate.UseHttps = true
     ToUpdate.Host = "raw.githubusercontent.com"
-    ToUpdate.VersionPath = "/Celtech/BOL/master/Susan/BuildingQQStacks.version"
-    ToUpdate.ScriptPath =  "/Celtech/BOL/master/Susan/BuildingQQStacks.lua"
+    ToUpdate.VersionPath = "/Celtech/BOL/master/Teemo/Cancer.version"
+    ToUpdate.ScriptPath =  "/Celtech/BOL/master/Teemo/Cancer.lua"
     ToUpdate.SavePath = SCRIPT_PATH.._ENV.FILE_NAME
     ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."Updated to v"..NewVersion.."</font>") end
     ToUpdate.CallbackNoUpdate = function(OldVersion) print("<font color='#FF0000'>["..myHero.charName.."]</font> <font color='#FFFFFF'>".."No Updates Found, loading version ".. OldVersion .."</font>") SCRIPTUPDATED = true  end
