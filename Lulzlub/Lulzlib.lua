@@ -185,8 +185,26 @@ function Lulzlib:CountEnemiesNearUnitReg(unit, range)
 	return count
 end
 
+class "Awareness"
+function Awareness:__init()
+	local function menuSetup()
+		LulzMenu.Draw:addSubMenu("Awareness", "awareness")
+            LulzMenu.Draw.awareness:addParam("Enabled", "Draw Range", 1, true)
+            LulzMenu.Draw.awareness:addParam("Hide", "Don't Draw When Not Castable", 1, true)
+            LulzMenu.Draw.awareness:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,255,255,0})
+			LulzMenu.Draw.awareness:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
+	end
+	menuSetup()
+	
+	
+	AddDrawCallback(function() self:OnDraw() end)
+end
+function Awareness:OnDraw()
+	
+end
+
 class "ItemsAndSummoners"
-function ItemsAndSummoners:__init()
+function ItemsAndSummoners:__init(buy)
     local function GetSummonerSpellFromName(name)
     	if myHero:GetSpellData(SUMMONER_1).name:lower():find(name:lower()) then
     		return SUMMONER_1
@@ -232,6 +250,7 @@ function ItemsAndSummoners:__init()
 	self.tick = 0
     self.killCount = myHero.kills
     self.trueItemSlot = nil
+	self.itemType = buy or 0
 
     self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MINHEALTH_DEC)
     for _, k in _G.Lulzlib.pairs(GetEnemyHeroes()) do
@@ -594,10 +613,22 @@ end
 function ItemsAndSummoners:AutoBuy()
     if LulzMenu.General.Buy.StartingItems then
 		if myHero.level <= 1 and self.firstBuy and InFountain() then
-			BuyItem(1055)
-            BuyItem(2003)
-            BuyItem(3340)
-			self.firstBuy = false
+			if self.itemType == 1 then
+				BuyItem(1056)
+				BuyItem(2003)
+				BuyItem(3340)
+				self.firstBuy = false
+			elseif self.itemType == 2 then
+				BuyItem(1054)
+				BuyItem(2003)
+				BuyItem(3340)
+				self.firstBuy = false
+			else
+				BuyItem(1055)
+				BuyItem(2003)
+				BuyItem(3340)
+				self.firstBuy = false
+			end
 		end
 	end
 
