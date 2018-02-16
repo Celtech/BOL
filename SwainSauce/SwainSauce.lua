@@ -1,7 +1,7 @@
 if myHero.charName ~= "Swain" then return end
 
 function OnLoad()
-    local version = 0.03
+    local version = 0.04
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -11,7 +11,7 @@ function OnLoad()
         Orbwalker()
         Prediction(LulzMenu.General)
         CTargetSelector()
-        ItemsAndSummoners()
+        ItemsAndSummoners(1)
         AntiBaseUlt()
         Humanizer()
         ThreshLantern()
