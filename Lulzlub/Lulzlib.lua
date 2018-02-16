@@ -1,6 +1,6 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .09
+    self.version = .10
 
     self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
@@ -104,7 +104,7 @@ function Lulzlib:CreateBaseMenu()
         LulzMenu.General:addParam("Verbose", "Track enemy recall in chat", 1, true)
 		LulzMenu.General:addParam("Debug", "Verbose Level", SCRIPT_PARAM_LIST, 2, {"None","Verbose","Debug"})
     LulzMenu:addSubMenu("Hotkeys Menu", "Hotkeys")
-         LulzMenu.Hotkeys:addParam("FleeKey", "Flee Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("G"))
+		LulzMenu.Hotkeys:addDynamicParam("FleeKey", "Flee Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("G"))
     LulzMenu:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
     LulzMenu:addParam("Taunt", "Taunt On Kill", SCRIPT_PARAM_LIST, 1,{"None","Dance","Taunt","Laugh","Joke"})
     LulzMenu:addParam("Skins", 'Skin Changer', SCRIPT_PARAM_SLICE, 0, 0, 25, 0)
@@ -1109,10 +1109,10 @@ function Orbwalker:__init()
 		LulzMenu.Hotkeys:setCallback("CustomKey", function(v)
 			if v == true then
 				LulzMenu.Hotkeys:removeParam("Orbwalker")
-				LulzMenu.Hotkeys:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
-				LulzMenu.Hotkeys:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
-				LulzMenu.Hotkeys:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
-				LulzMenu.Hotkeys:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+				LulzMenu.Hotkeys:addDynamicParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
+				LulzMenu.Hotkeys:addDynamicParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
+				LulzMenu.Hotkeys:addDynamicParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
+				LulzMenu.Hotkeys:addDynamicParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
 			elseif v == false then
 				LulzMenu.Hotkeys:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "")
 				LulzMenu.Hotkeys:removeParam("Combo")
@@ -1153,10 +1153,10 @@ function Orbwalker:FindOrbwalker()
 		DelayAction(function() LulzMenu.Hotkeys:addParam("Orbwalker", orbwalker .. " Detected, Hotkeys integrated", SCRIPT_PARAM_INFO, "") end, 2)
 	elseif orbwalker ~= nil then
 		DelayAction(function()
-			LulzMenu.Hotkeys:addParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
-			LulzMenu.Hotkeys:addParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
-			LulzMenu.Hotkeys:addParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
-			LulzMenu.Hotkeys:addParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+			LulzMenu.Hotkeys:addDynamicParam("Combo", "Combo Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte(" "))
+			LulzMenu.Hotkeys:addDynamicParam("Harass", "Harass Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
+			LulzMenu.Hotkeys:addDynamicParam("Laneclear", "Lane Clear Mode", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
+			LulzMenu.Hotkeys:addDynamicParam("Lasthit", "Last Hit", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
 		end, 2)
 	end
 end
