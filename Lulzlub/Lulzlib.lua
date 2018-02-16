@@ -1,11 +1,12 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .10
+    self.version = .11
 
     self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
     self.pairs, self.ipairs = pairs, ipairs
     self.insert, self.remove = table.insert, table.remove
+	self.enemyHeroes = GetEnemyHeroes()
 end
 function Lulzlib:IsQReady()
     return myHero:CanUseSpell(_Q) == READY
@@ -42,8 +43,8 @@ end
 function Lulzlib:BoolToInt(var)
     return var and 1 or 0
 end
-function Lulzlib:CreateBaseMenu()
-    _G.LulzMenu = scriptConfig("Lulz"..myHero.charName, myHero.charName .. "lulz")
+function Lulzlib:CreateBaseMenu(name)
+    _G.LulzMenu = scriptConfig(name or "Lulz"..myHero.charName, myHero.charName .. "lulz")
     LulzMenu:addSubMenu("Drawing Menu", "Draw")
         LulzMenu.Draw:addSubMenu("Q Settings", "Q")
             LulzMenu.Draw.Q:addParam("Enabled", "Draw Range", 1, true)
@@ -60,6 +61,9 @@ function Lulzlib:CreateBaseMenu()
             LulzMenu.Draw.R:addParam("Enabled", "Draw Range", 1, true)
             LulzMenu.Draw.R:addParam("Hide", "Don't Draw When Not Castable", 1, true)
             LulzMenu.Draw.R:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,0,255,255})
+		LulzMenu.Draw:addSubMenu("Damage Settings", "damage")
+            LulzMenu.Draw.damage:addParam("Enabled", "Draw healthbar damage", 1, true)
+            LulzMenu.Draw.damage:addParam("Color", "Damage color", SCRIPT_PARAM_COLOR, {100,0,0,0})
         LulzMenu.Draw:addParam("PlaceHolder", "", SCRIPT_PARAM_INFO, "")
         LulzMenu.Draw:addParam("StreamMode", "Enable Streaming Mode(F7)", SCRIPT_PARAM_ONKEYTOGGLE, false, 118)
         LulzMenu.Draw:addParam("DrawTarget", "Draw Target", 1, true)
@@ -141,6 +145,44 @@ end
 function Lulzlib:ShadowText(text, unit)
 	DrawText3D(text, unit.x - 5, unit.y + 300, unit.z, 36, 0xff000000, false)
 	DrawText3D(text, unit.x, unit.y + 300, unit.z, 36, 0xffffffff, false)
+end
+function Lulzlib:GetAbilityFramePos(unit)
+	local barPos = GetUnitHPBarPos(unit)
+	local barOffset = GetUnitHPBarOffset(unit)
+
+	do
+		local t = {
+			["Darius"] = -0.05,
+			["Renekton"] = -0.05,
+			["Sion"] = -0.05,
+			["Thresh"] = 0.03,
+		}
+		barOffset.x = t[unit.charName] or 0
+	end
+
+	return Point(barPos.x - 45 + barOffset.x * 150, barPos.y + barOffset.y * 50 - 18)
+end
+function Lulzlib:DrawDmg(unit)
+	local hpPos = Lulzlib:GetAbilityFramePos(unit)
+	local hpPercent = (Lulzlib:GetDamage("ALL", unit) / unit.maxHealth * 106)
+	local startPos = ((unit.health /unit.maxHealth) * 106)
+	
+	if startPos - hpPercent < 0 then
+		DrawRectangle(hpPos.x + startPos, hpPos.y, -(startPos), 13, self:ReturnColor(LulzMenu.Draw.damage.Color))
+	else 
+		DrawRectangle(hpPos.x + startPos, hpPos.y, -hpPercent, 13, self:ReturnColor(LulzMenu.Draw.damage.Color))
+	end
+end
+function Lulzlib:CountEnemiesNearUnitReg(unit, range)
+	local count = 0
+	for i, enemy in self.pairs(self.enemyHeroes) do
+		if enemy and enemy.valid and not enemy.dead and enemy.visible then
+			if  GetDistanceSqr(unit, enemy) < (range * range)  then
+				count = count + 1
+			end
+		end
+	end
+	return count
 end
 
 class "ItemsAndSummoners"
@@ -519,17 +561,7 @@ function ItemsAndSummoners:CleanseCC(source, unit, buff)
     	-- 	lastRemove = _G.Lulzlib.clock()
     	-- end
     end
-    local function CountEnemiesNearUnitReg(unit, range)
-    	local count = 0
-    	for i, enemy in _G.Lulzlib.pairs(ItemsAndSummoners.enemyHeroes) do
-    		if enemy and enemy.valid and not enemy.dead and enemy.visible then
-    			if  GetDistanceSqr(unit, enemy) < range * range  then
-    				count = count + 1
-    			end
-    		end
-    	end
-    	return count
-    end
+    
 
     if not buff or not source or not source.valid or not unit or not unit.valid then return end
 	if unit.isMe and (LulzMenu.Items.CleanseSettings.Enable == 3 or (LulzMenu.Items.CleanseSettings.Enable == 2 and Orbwalker:IsFighting())) then
@@ -537,7 +569,7 @@ function ItemsAndSummoners:CleanseCC(source, unit, buff)
 		if buff.name and ((not cleanse and buff.type == 24) or buff.type == 5 or buff.type == 11 or buff.type == 22 or buff.type == 21 or buff.type == 8) or (buff.type == 25 and LulzMenu.Items.CleanseSettings.Blind)
 		or (buff.type == 10 and buff.name and buff.name:lower():find("fleeslow")) then
 		--or (LulzMenu.Items.CleanseSettings.Exhaust and buff.name and buff.name:lower():find("summonerexhaust")) then
-			if buff.name and buff.name:lower():find("caitlynyor") and CountEnemiesNearUnitReg(myHero, 700) == 0   then
+			if buff.name and buff.name:lower():find("caitlynyor") and Lulzlib:CountEnemiesNearUnitReg(myHero, 700) == 0   then
 				return false
 			elseif not source.charName:lower():find("blitzcrank") then
 				UseItemsCC()
