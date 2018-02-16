@@ -199,12 +199,8 @@ function Nasus:CastE(enemy)
 end
 function Nasus:CastR(enemy)
     if Lulzlib:IsRReady() then
-		if Lulzlib.clock() > self.nextUltCast then
-			local castSpot = enemy + (Vector(enemy.endPath) - enemy):normalized() * 550
-			if GetDistance(castSpot) < self.SpellTable.R.range[myHero:GetSpellData(3).level] then
-				CastSpell(_R, castSpot.x, castSpot.z)
-				self.nextUltCast = Lulzlib.clock() + 5
-			end
+		if GetDistance(enemy) < 400 then
+			CastSpell(_R)
 		end
     end
 end
@@ -224,6 +220,7 @@ function Nasus:FleeMode()
         myHero:MoveTo(mousePos.x, mousePos.z)
     end
 end
+
 
 class "SxScriptUpdate"
 function CheckUpdatesLib()
