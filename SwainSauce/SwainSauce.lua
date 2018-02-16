@@ -1,7 +1,7 @@
 if myHero.charName ~= "Swain" then return end
 
 function OnLoad()
-    local version = 0.02
+    local version = 0.03
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -305,19 +305,19 @@ function Swain:KillSteal()
     for i, enemy in _G.Lulzlib.pairs(self.enemyHeros) do
         if enemy and ValidTarget(enemy) then
             if LulzMenu.Spell.QMenu.EnableKs then
-                if getDmg("Q", enemy, myHero) > enemy.health then
+				if Lulzlib:GetDamage(_Q, enemy) > enemy.health then
                     self:CastQ(enemy)
                 end
 			end
 			
 			if LulzMenu.Spell.WMenu.EnableKs then
-                if getDmg("W", enemy, myHero) > enemy.health then
+                if Lulzlib:GetDamage(_W, enemy) > enemy.health then
                     self:CastW(enemy)
                 end
 			end
 			
 			if LulzMenu.Spell.EMenu.EnableKs then
-                if getDmg("E", enemy, myHero) > enemy.health then
+                if Lulzlib:GetDamage(_E, enemy) > enemy.health then
                     self:CastE(enemy)
                 end
 			end
