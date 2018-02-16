@@ -1,7 +1,7 @@
 if myHero.charName ~= "Swain" then return end
 
 function OnLoad()
-    local version = 0.01
+    local version = 0.02
     CheckUpdatesLib()
     CheckUpdates(version)
 
@@ -16,6 +16,7 @@ function OnLoad()
         Humanizer()
         ThreshLantern()
 		recallTracker()
+		--Awareness()
         _G[myHero.charName]()
     end
 end
@@ -36,6 +37,24 @@ function Swain:__init()
         [_E] = function(unit) if Lulzlib:IsEReady() then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_E).level * 35)) + (myHero.ap * 0.25)) + (((myHero:GetSpellData(_E).level * 25) + 10) + (myHero.ap * .25)) + (35 + (myHero.ap * .45)))) end end,
         [_W] = function(unit) if Lulzlib:IsWReady() then return myHero:CalcMagicDamage(unit, ((((myHero:GetSpellData(_W).level * 50) + 50) + (myHero.ap * .7)))) end end,
     }
+	self.InterruptableSpell = {
+		{name = "katarinar", duration = 1}, -- Katarina R
+		{name = "galioidolofdurand", duration = 1}, -- Galio R
+		{name = "crowstorm", duration = 1}, -- Fiddle R
+		{name = "drain", duration = 1}, -- Fiddle W
+		{name = "absolutezero", duration = 1}, -- Nunu R
+		{name = "shenstandunited", duration = 1}, -- Shen R
+		{name = "urgotswap2", duration = 1}, -- Urgot R
+		{name = "alzaharnethergrasp", duration = 2.5}, -- Malzahar R
+		{name = "fallenone", duration = 1.5}, -- Karthus R
+		{name = "pantheon_grandskyfall_jump", duration = 1.8}, -- Pantheon R
+		{name = "varusq", duration = 1}, -- Varus Q
+		{name = "caitlynaceintthehole", duration = 1}, -- Caitlyn R
+		{name = "missfortunebullettime", duration = 2.5}, -- MissFortune R
+		{name = "infiniteduress", duration = 2}, -- Warwick R
+		{name = "lucianr", duration = 2}, -- Lucian R
+		{name = "jhinr", duration = 2.5}, -- Jhin R
+	}
 	
 	self:AddToMenu()
     self.enemyHeros = GetEnemyHeroes()
@@ -44,6 +63,7 @@ function Swain:__init()
 
     AddDrawCallback(function() self:OnDraw() end)
     AddTickCallback(function() self:OnTick() end)
+	AddProcessSpellCallback(function(unit, spell) self:OnProcessSpell(unit, spell) end)
 end
 function Swain:AddToMenu()
 	LulzMenu.Draw.E:addParam("CircleColor", "Circle color", SCRIPT_PARAM_COLOR, {255,255,0,255})
@@ -308,6 +328,15 @@ function Swain:FleeMode()
     if LulzMenu.Hotkeys.FleeKey then
         myHero:MoveTo(mousePos.x, mousePos.z)
     end
+end
+function Swain:OnProcessSpell(unit, spell)
+	if unit and unit.valid and unit.type == myHero.type and unit.team ~= myHero.team and spell and spell.name and GetDistance(unit) < self.SpellTable.E.range then
+		for k, v in ipairs(self.InterruptableSpell) do
+			if spell.name:lower() == self.InterruptableSpell[k].name then
+				CastSpell(_E, unit.x, unit.z)
+			end
+		end
+	end
 end
 
 class "SxScriptUpdate"
