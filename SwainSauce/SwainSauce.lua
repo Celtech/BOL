@@ -1,7 +1,7 @@
 if myHero.charName ~= "Swain" then return end
 
 function OnLoad()
-    local version = 0.02
+    local version = 0.01
     CheckUpdatesLib()
     CheckUpdates(version)
 
