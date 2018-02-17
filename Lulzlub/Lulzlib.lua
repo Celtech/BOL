@@ -1,6 +1,6 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .13
+    self.version = .14
 
     self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
@@ -99,7 +99,7 @@ function Lulzlib:CreateBaseMenu(name)
         LulzMenu.General:addSubMenu("Auto Leveler", "Level")
             LulzMenu.General.Level:addParam("Enable", "Enable Auto Leveler", 1, true)
             LulzMenu.General.Level:addParam("Ignore", "Ignore First 3 Levels", 1, true)
-            LulzMenu.General.Level:addParam("Sequence", "Leveling Sequence", SCRIPT_PARAM_LIST, 1,{'Q>E>W', 'Q>W>E', 'W>Q>E', 'W>E>Q', 'E>Q>W', 'E>W>Q'})
+            LulzMenu.General.Level:addParam("Sequence", "Leveling Sequence", SCRIPT_PARAM_LIST, 1,{'R>Q>E>W', 'R>Q>W>E', 'R>W>Q>E', 'R>W>E>Q', 'R>E>Q>W', 'R>E>W>Q'})
         LulzMenu.General:addSubMenu("Auto Buy", "Buy")
             LulzMenu.General.Buy:addParam("StartingItems", "Purchase Starting Items", 1, true)
 		    LulzMenu.General.Buy:addParam("TrinketSwitch", "Auto Switch Trinket At 9", SCRIPT_PARAM_LIST, 2, {"Off","Blue","Red"})
@@ -251,7 +251,7 @@ function ItemsAndSummoners:__init(buy)
     self.killCount = myHero.kills
     self.trueItemSlot = nil
 	self.itemType = buy or 0
-
+	self.qOff, self.wOff, self.eOff, self.rOff = 0,0,0,0
     self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MINHEALTH_DEC)
     for _, k in _G.Lulzlib.pairs(GetEnemyHeroes()) do
 		self.enemies[k.networkID] = {k.visible, Vector(k), _G.Lulzlib.clock() + 1, Vector(k.path:Path(2))}
@@ -600,14 +600,21 @@ function ItemsAndSummoners:AutoLeveler()
 	if LulzMenu.General.Level.Enable then
 	if LulzMenu.General.Level.Ignore and myHero.level <= 3 then return end
 		self.abilitySequence = {
-            {1,3,1,2,1,4,1,3,1,3,4,3,3,2,2,4,2,2},
-            {1,2,3,1,1,4,1,2,1,2,4,2,2,3,3,4,3,3},
-            {2,1,3,2,2,4,2,1,2,1,4,1,1,3,3,4,3,3},
-            {2,3,1,2,2,4,2,3,2,3,4,3,3,1,1,4,1,1},
-            {3,1,3,2,3,4,3,1,3,1,4,1,1,2,2,4,2,2},
-            {3,2,3,1,3,4,3,2,3,2,4,2,2,1,1,4,1,1},
+            {3,0,2,1},
+            {3,0,1,2},
+            {3,1,0,2},
+            {3,1,2,0},
+            {3,2,0,1},
+            {3,2,1,0},
         }
-        autoLevelSetSequence(self.abilitySequence[LulzMenu.General.Level.Sequence])
+		
+		for i=1, 4 do	
+			if myHero.level == 2 then
+				LevelSpell(self.abilitySequence[LulzMenu.General.Level.Sequence][4])
+			else
+				LevelSpell(self.abilitySequence[LulzMenu.General.Level.Sequence][i])
+			end
+		end
 	end
 end
 function ItemsAndSummoners:AutoBuy()
@@ -900,7 +907,7 @@ function CTargetSelector:__init()
         [4] = {"Aatrox", "Amumu", "Blitzcrank", "Darius", "Gnar", "Gragas", "Illaoi", "Ivern", "Janna", "Kled", "Malphite", "Maokai", "Nami", "Nasus", "Nunu", "Olaf", "Sejuani", "Shyvana", "Rakan", "RekSai", "Renekton", "Swain", "Trundle", "Udyr", "Urgot", "Volibear", "Yorick"},
         [3] = {"Akali", "Anivia", "Bard", "ChoGath", "Ekko", "Elise", "Fiora", "Gangplank", "Hecarim", "Heimerdinger", "Irelia", "JarvanIV", "Jax", "Jayce", "Kassadin", "Kayle", "Lee Sin", "Lissandra", "Lulu", "Mordekaiser", "Morgana", "Nidalee", "Pantheon", "Sona", "Taliyah", "Tryndamere", "Vi", "Vladimir", "Warwick", "Wukong", "XinZhao", "Zilean", "Zyra"},
         [2] = {"Ahri", "Annie", "Aurelion Sol", "Azir", "Camille", "Cassiopeia", "Corki", "Diana", "Evelynn", "Fiddlesticks", "Fizz", "Graves", "Karma", "Karthus", "Katarina", "Kennen", "Kindred", "LeBlanc", "Lux", "Malzahar", "Nocturne", "Orianna", "Ryze", "Shaco", "Riven", "Rengar", "Syndra", "Soraka", "Talon", "Twisted Fate", "Veigar", "VelKoz","Viktor", "Xerath", "Zed", "Ziggs"},
-        [1] = {"Ashe", "Brand", "Caitlyn", "Draven", "Ezreal", "Jhin", "Jinx", "Kalista", "KhaZix", "KogMaw", "Lucian", "Master Yi", "Miss Fortune", "Quinn", "Sivir", "Teemo", "Tristana", "Twitch", "Varus", "Vayne", "Xayah", "Yasuo"},
+        [1] = {"Ashe", "Brand", "Caitlyn", "Draven", "Ezreal", "Jhin", "Jinx", "Kalista", "KhaZix", "KogMaw", "Lucian", "Master Yi", "MissFortune", "Quinn", "Sivir", "Teemo", "Tristana", "Twitch", "Varus", "Vayne", "Xayah", "Yasuo"},
     }
     CTargetSelector.sendOnce = true
 
