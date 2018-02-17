@@ -1,6 +1,6 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .14
+    self.version = .15
 
     self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
@@ -251,7 +251,6 @@ function ItemsAndSummoners:__init(buy)
     self.killCount = myHero.kills
     self.trueItemSlot = nil
 	self.itemType = buy or 0
-	self.qOff, self.wOff, self.eOff, self.rOff = 0,0,0,0
     self.jungleMinions = minionManager(MINION_JUNGLE, 625, myHero, MINION_SORT_MINHEALTH_DEC)
     for _, k in _G.Lulzlib.pairs(GetEnemyHeroes()) do
 		self.enemies[k.networkID] = {k.visible, Vector(k), _G.Lulzlib.clock() + 1, Vector(k.path:Path(2))}
@@ -1351,6 +1350,7 @@ function Prediction:__init(menu)
         ["Predictions"] = {{"VPrediction", 2, 1, 3, 0}, {"FHPrediction", 1.1, 1, 2, 2}, {"HPrediction", 1.05, 0, 3, 2}, {"TRPrediction", 0, 0, 0, 0}, {"KPrediction", 1.75, 0, 3, 2}},
         ["FoundPredictions"] = {},
         ["LoadedPredictions"] = {},
+		["predictonTableToRemove"] = {},
         ["GlobalCallbacks"] = {},
         ["ActivePrediction"] = nil,
     }
@@ -1359,11 +1359,34 @@ function Prediction:__init(menu)
 	for i=1, #_G.predictonTable.Predictions do
         if FileExist(LIB_PATH .. _G.predictonTable.Predictions[i][1] .. ".lua") then
             _G.Lulzlib.insert(_G.predictonTable.FoundPredictions, _G.predictonTable.Predictions[i][1])
+		else
+			_G.Lulzlib.insert(_G.predictonTable.predictonTableToRemove, _G.predictonTable.Predictions[i][1])
     	end
     end
-
-    menu:addParam("Prediction", "Prediction", SCRIPT_PARAM_LIST, 1, _G.predictonTable.FoundPredictions)
-    menu:setCallback("Prediction", function(v)
+	for i=1, #_G.predictonTable.predictonTableToRemove do
+		local isFound = false
+		for j=1, #_G.predictonTable.Predictions do
+			if _G.predictonTable.predictonTableToRemove[i] == _G.predictonTable.Predictions[j][1] then
+				for k=1, #_G.predictonTable.FoundPredictions do
+					if _G.predictonTable.FoundPredictions[k] == _G.predictonTable.Predictions[j] then
+						isFound = true
+						break
+					end
+				end
+				
+				if isFound == false then
+					table.remove(_G.predictonTable.Predictions, j)
+					break
+				end
+			end
+		end
+	end
+	
+	if next(_G.predictonTable.FoundPredictions) == nil then
+		DownloadHPred()
+	else
+		menu:addParam("Prediction", "Prediction", SCRIPT_PARAM_LIST, 1, _G.predictonTable.FoundPredictions)
+		menu:setCallback("Prediction", function(v)
         for i=1, #self.menuItems do
             self.menuItems[i]:modifyParam("Accuracy", "min",  _G.predictonTable.Predictions[v][3])
             self.menuItems[i]:modifyParam("Accuracy", "max",  _G.predictonTable.Predictions[v][4])
@@ -1375,7 +1398,8 @@ function Prediction:__init(menu)
 			end
         end
     end)
-    AddTickCallback(function() self:ActivePrediction() end)
+		AddTickCallback(function() self:ActivePrediction() end)
+	end  
 end
 function Prediction:ActivePrediction()
     _G.predictonTable.ActivePrediction = _G.predictonTable.Predictions[LulzMenu.General.Prediction][1]
@@ -1394,13 +1418,15 @@ function Prediction:ActivePrediction()
             return
         end
     end
-
+	
     _G.Lulzlib.insert(_G.predictonTable.LoadedPredictions, _G.predictonTable.ActivePrediction)
     require(_G.predictonTable.ActivePrediction)
 end
 function Prediction:AddToMenu(menu)
-    menu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, _G.predictonTable.Predictions[LulzMenu.General.Prediction][2], _G.predictonTable.Predictions[LulzMenu.General.Prediction][3], _G.predictonTable.Predictions[LulzMenu.General.Prediction][4], _G.predictonTable.Predictions[LulzMenu.General.Prediction][5])
-    _G.Lulzlib.insert(Prediction.menuItems,menu)
+	if next(_G.predictonTable.FoundPredictions) ~= nil then
+		menu:addParam("Accuracy", "Prediction Accuracy", SCRIPT_PARAM_SLICE, _G.predictonTable.Predictions[LulzMenu.General.Prediction][2], _G.predictonTable.Predictions[LulzMenu.General.Prediction][3], _G.predictonTable.Predictions[LulzMenu.General.Prediction][4], _G.predictonTable.Predictions[LulzMenu.General.Prediction][5])
+		_G.Lulzlib.insert(Prediction.menuItems,menu)
+	end
 end
 function Prediction:GetLineCastPosition(target, spellTable, usePreset)
     if _G.predictonTable.ActivePrediction ~= nil then
@@ -1480,5 +1506,208 @@ function Prediction:GetPredictedPosistion(hero, delay)
         elseif _G.predictonTable.ActivePrediction == "KPrediction" then
             return activePrediction:GetPos(hero, delay)
         end
+    end
+end
+
+class "SxScriptUpdate"
+function DownloadHPred()
+    local ToUpdate = {}
+    ToUpdate.UseHttps = true
+    ToUpdate.Host = "raw.githubusercontent.com"
+    ToUpdate.VersionPath = "/BolHTTF/BoL/master/HTTF/Version/HPrediction.version"
+    ToUpdate.ScriptPath =  "/BolHTTF/BoL/master/HTTF/Common/HPrediction.lua"
+    ToUpdate.SavePath = LIB_PATH.."HPrediction.lua"
+    ToUpdate.Version = nil
+    ToUpdate.CallbackUpdate = function(NewVersion,OldVersion) Lulzlib:Log("HPrediction downloaded, please F9x2") end
+    ToUpdate.CallbackNewVersion = function(NewVersion) Lulzlib:Log("Downloading HPrediction v"..NewVersion..". Please wait to reload until the download if finished!") end
+    ToUpdate.CallbackError = function(NewVersion) Lulzlib:Log("Error while Downloading. Please try again.") end
+
+    SxScriptUpdate(0.00,ToUpdate.UseHttps, ToUpdate.Host, ToUpdate.VersionPath, ToUpdate.ScriptPath, ToUpdate.SavePath, ToUpdate.CallbackUpdate,ToUpdate.CallbackNoUpdate, ToUpdate.CallbackNewVersion,ToUpdate.CallbackError, true)
+end
+function SxScriptUpdate:__init(LocalVersion,UseHttps, Host, VersionPath, ScriptPath, SavePath, CallbackUpdate, CallbackNoUpdate, CallbackNewVersion,CallbackError, IsLib)
+    self.LocalVersion = LocalVersion
+    self.Host = Host
+    self.VersionPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..VersionPath)..'&rand='..math.random(99999999)
+    self.ScriptPath = '/BoL/TCPUpdater/GetScript'..(UseHttps and '5' or '6')..'.php?script='..self:Base64Encode(self.Host..ScriptPath)..'&rand='..math.random(99999999)
+    self.SavePath = SavePath
+    self.CallbackUpdate = CallbackUpdate
+    self.CallbackNoUpdate = CallbackNoUpdate
+    self.CallbackNewVersion = CallbackNewVersion
+    self.CallbackError = CallbackError
+    self.Updated = false
+    self.isLib = IsLib or false
+    AddDrawCallback(function() self:OnDraw() end)
+    self:CreateSocket(self.VersionPath)
+    self.DownloadStatus = 'Connect to Server for VersionInfo'
+    AddTickCallback(function() self:GetOnlineVersion() end)
+end
+function SxScriptUpdate:OnDraw()
+    if self.DownloadStatus ~= 'Downloading Script (100%)' and self.DownloadStatus ~= 'Downloading VersionInfo (100%)'then
+        DrawText('Download Status: '..(self.DownloadStatus or 'Unknown'),50,10,50,ARGB(0xFF,0xFF,0xFF,0xFF))
+    end
+
+    if self.Updated and not self.isLib then
+        DrawTextA('Update Downloaded, Reload the script!',50,WINDOW_W / 2,WINDOW_H / 2,ARGB(0xFF,0xFF,0x00,0x00), "center", "center")
+    end
+end
+function SxScriptUpdate:CreateSocket(url)
+    if not self.LuaSocket then
+        self.LuaSocket = require("socket")
+    else
+        self.Socket:close()
+        self.Socket = nil
+        self.Size = nil
+        self.RecvStarted = false
+    end
+    self.LuaSocket = require("socket")
+    self.Socket = self.LuaSocket.tcp()
+    self.Socket:settimeout(0, 'b')
+    self.Socket:settimeout(99999999, 't')
+    self.Socket:connect('sx-bol.eu', 80)
+    self.Url = url
+    self.Started = false
+    self.Lastprint = ""
+    self.File = ""
+end
+function SxScriptUpdate:Base64Encode(data)
+    local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    return ((data:gsub('.', function(x)
+        local r,b='',x:byte()
+        for i=8,1,-1 do r=r..(b%2^i-b%2^(i-1)>0 and '1' or '0') end
+        return r;
+    end)..'0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
+        if (#x < 6) then return '' end
+        local c=0
+        for i=1,6 do c=c+(x:sub(i,i)=='1' and 2^(6-i) or 0) end
+        return b:sub(c+1,c+1)
+    end)..({ '', '==', '=' })[#data%3+1])
+end
+function SxScriptUpdate:GetOnlineVersion()
+    if self.GotScriptVersion then return end
+
+    self.Receive, self.Status, self.Snipped = self.Socket:receive(1024)
+    if self.Status == 'timeout' and not self.Started then
+        self.Started = true
+        self.Socket:send("GET "..self.Url.." HTTP/1.0\r\nHost: sx-bol.eu\r\n\r\n")
+    end
+    if (self.Receive or (#self.Snipped > 0)) and not self.RecvStarted then
+        self.RecvStarted = true
+        self.DownloadStatus = 'Downloading VersionInfo (0%)'
+    end
+
+    self.File = self.File .. (self.Receive or self.Snipped)
+    if self.File:find('</s'..'ize>') then
+        if not self.Size then
+            self.Size = tonumber(self.File:sub(self.File:find('<si'..'ze>')+6,self.File:find('</si'..'ze>')-1))
+        end
+        if self.File:find('<scr'..'ipt>') then
+            local _,ScriptFind = self.File:find('<scr'..'ipt>')
+            local ScriptEnd = self.File:find('</scr'..'ipt>')
+            if ScriptEnd then ScriptEnd = ScriptEnd - 1 end
+            local DownloadedSize = self.File:sub(ScriptFind+1,ScriptEnd or -1):len()
+            self.DownloadStatus = 'Downloading VersionInfo ('.. math.round(100/self.Size*DownloadedSize,2)..'%)'
+        end
+    end
+    if self.File:find('</scr'..'ipt>') then
+        self.DownloadStatus = 'Downloading VersionInfo (100%)'
+        local a,b = self.File:find('\r\n\r\n')
+        self.File = self.File:sub(a,-1)
+        self.NewFile = ''
+        for line,content in ipairs(self.File:split('\n')) do
+            if content:len() > 5 then
+                self.NewFile = self.NewFile .. content
+            end
+        end
+        local HeaderEnd, ContentStart = self.File:find('<scr'..'ipt>')
+        local ContentEnd, _ = self.File:find('</sc'..'ript>')
+        if not ContentStart or not ContentEnd then
+            if self.CallbackError and type(self.CallbackError) == 'function' then
+                self.CallbackError()
+            end
+        else
+            self.OnlineVersion = (Base64Decode(self.File:sub(ContentStart + 1,ContentEnd-1)))
+            self.OnlineVersion = tonumber(self.OnlineVersion)
+            if self.OnlineVersion > self.LocalVersion then
+                if self.CallbackNewVersion and type(self.CallbackNewVersion) == 'function' then
+                    self.CallbackNewVersion(self.OnlineVersion,self.LocalVersion)
+                end
+                self:CreateSocket(self.ScriptPath)
+                self.DownloadStatus = 'Connect to Server for ScriptDownload'
+                AddTickCallback(function() self:DownloadUpdate() end)
+            else
+                if self.CallbackNoUpdate and type(self.CallbackNoUpdate) == 'function' then
+                    self.CallbackNoUpdate(self.LocalVersion)
+                end
+            end
+        end
+        self.GotScriptVersion = true
+    end
+end
+function SxScriptUpdate:DownloadUpdate()
+    if self.GotSxScriptUpdate then return end
+    self.Receive, self.Status, self.Snipped = self.Socket:receive(1024)
+    if self.Status == 'timeout' and not self.Started then
+        self.Started = true
+        self.Socket:send("GET "..self.Url.." HTTP/1.0\r\nHost: sx-bol.eu\r\n\r\n")
+    end
+    if (self.Receive or (#self.Snipped > 0)) and not self.RecvStarted then
+        self.RecvStarted = true
+        self.DownloadStatus = 'Downloading Script (0%)'
+    end
+
+    self.File = self.File .. (self.Receive or self.Snipped)
+    if self.File:find('</si'..'ze>') then
+        if not self.Size then
+            self.Size = tonumber(self.File:sub(self.File:find('<si'..'ze>')+6,self.File:find('</si'..'ze>')-1))
+        end
+        if self.File:find('<scr'..'ipt>') then
+            local _,ScriptFind = self.File:find('<scr'..'ipt>')
+            local ScriptEnd = self.File:find('</scr'..'ipt>')
+            if ScriptEnd then ScriptEnd = ScriptEnd - 1 end
+            local DownloadedSize = self.File:sub(ScriptFind+1,ScriptEnd or -1):len()
+            self.DownloadStatus = 'Downloading Script ('..math.round(100/self.Size*DownloadedSize,2)..'%)'
+        end
+    end
+    if self.File:find('</scr'..'ipt>') then
+        self.DownloadStatus = 'Downloading Script (100%)'
+        local a,b = self.File:find('\r\n\r\n')
+        self.File = self.File:sub(a,-1)
+        self.NewFile = ''
+        for line,content in ipairs(self.File:split('\n')) do
+            if content:len() > 5 then
+                self.NewFile = self.NewFile .. content
+            end
+        end
+        local HeaderEnd, ContentStart = self.NewFile:find('<sc'..'ript>')
+        local ContentEnd, _ = self.NewFile:find('</scr'..'ipt>')
+        if not ContentStart or not ContentEnd then
+            if self.CallbackError and type(self.CallbackError) == 'function' then
+                self.CallbackError()
+            end
+        else
+            local newf = self.NewFile:sub(ContentStart+1,ContentEnd-1)
+            local newf = newf:gsub('\r','')
+            if newf:len() ~= self.Size then
+                if self.CallbackError and type(self.CallbackError) == 'function' then
+                    self.CallbackError()
+                end
+                return
+            end
+            local newf = Base64Decode(newf)
+            if type(load(newf)) ~= 'function' then
+                if self.CallbackError and type(self.CallbackError) == 'function' then
+                    self.CallbackError()
+                end
+            else
+                local f = io.open(self.SavePath,"w+b")
+                f:write(newf)
+                f:close()
+                if self.CallbackUpdate and type(self.CallbackUpdate) == 'function' then
+                    self.CallbackUpdate(self.OnlineVersion,self.LocalVersion)
+                    self.Updated = true
+                end
+            end
+        end
+        self.GotSxScriptUpdate = true
     end
 end
