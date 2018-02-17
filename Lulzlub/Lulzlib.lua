@@ -1,6 +1,6 @@
 class "Lulzlib"
 function Lulzlib:__init()
-    self.version = .12
+    self.version = .13
 
     self.pi, self.pi2, self.sin, self.cos, self.huge, self.sqrt, self.floor, self.ceil, self.max, self.random, self.round, self.atan = math.pi, 2*math.pi, math.sin, math.cos, math.huge, math.sqrt, math.floor, math.ceil, math.max, math.random, math.round, math.atan
     self.clock = os.clock
@@ -1424,7 +1424,7 @@ function Prediction:GetCircularCastPosition(target, spellTable, usePreset)
         elseif _G.predictonTable.ActivePrediction == "HPrediction" then
             return activePrediction:GetPredict(HPSkillshot({type = "DelayCircle", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collisionM = spellTable.collision, collisionH = spellTable.collision, radius = spellTable.radius}), target, myHero);
         elseif _G.predictonTable.ActivePrediction == "TRPrediction" then
-            return activePrediction:GetPrediction(TR_BindSS({type = 'IsRadial', delay = spellTable.delay, range = spellTable.range, radius = spellTable.radius, speed = spellTable.speed, allowedCollisionCount = math.huge}), target, myHero)
+            return activePrediction:GetPrediction(TR_BindSS({type = 'IsRadial', delay = spellTable.delay, range = spellTable.range, radius = spellTable.radius, speed = spellTable.speed, allowedCollisionCount = math.huge}), target, myHero),100
         elseif _G.predictonTable.ActivePrediction == "KPrediction" then
             return activePrediction:GetPrediction(KPSkillshot({type = "DelayCircle", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collision = spellTable.collision, radius = spellTable.radius}), target, myHero);
         end
@@ -1439,7 +1439,7 @@ function Prediction:GetConeCastPosition(target, spellTable, usePreset)
         elseif _G.predictonTable.ActivePrediction == "HPrediction" then
             return activePrediction:GetPredict(HPSkillshot({type = "DelayArc", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collisionM = spellTable.collision, collisionH = spellTable.collision, angle = spellTable.angle}), target, myHero);
         elseif _G.predictonTable.ActivePrediction == "TRPrediction" then
-            return activePrediction:GetPrediction(TR_BindSS({type = 'IsConic', delay = spellTable.delay, range = spellTable.range, angle = spellTable.angle , speed = spellTable.speed, allowedCollisionCount = math.huge}), target, myHero)
+            return activePrediction:GetPrediction(TR_BindSS({type = 'IsConic', delay = spellTable.delay, range = spellTable.range, angle = spellTable.angle , speed = spellTable.speed, allowedCollisionCount = math.huge}), target, myHero),100
         elseif _G.predictonTable.ActivePrediction == "KPrediction" then
             return activePrediction:GetPrediction(KPSkillshot({type = "DelayArc", delay = spellTable.delay, range = spellTable.range, speed = spellTable.speed, collision = spellTable.collision, angle = spellTable.angle}), target, myHero);
         end
